@@ -91,6 +91,9 @@ Definition dim_sub (d1 d2 : Dimension) : Dimension :=
 Definition dim_scale (n : Z) (d : Dimension) : Dimension :=
   fun b => n * d b.
 
+Example dim_zero_at_length : dim_zero DimLength = 0 := eq_refl.
+Example dim_zero_at_mass : dim_zero DimMass = 0 := eq_refl.
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Dimension Equality                                            *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
@@ -464,6 +467,12 @@ Definition dim_temperature : Dimension := dim_basis DimTemperature.
 Definition dim_amount : Dimension := dim_basis DimAmount.
 Definition dim_luminosity : Dimension := dim_basis DimLuminosity.
 
+Example dim_length_has_length_exp_1 : dim_length DimLength = 1 := eq_refl.
+Example dim_length_has_mass_exp_0 : dim_length DimMass = 0 := eq_refl.
+Example dim_length_has_time_exp_0 : dim_length DimTime = 0 := eq_refl.
+Example dim_mass_has_mass_exp_1 : dim_mass DimMass = 1 := eq_refl.
+Example dim_time_has_time_exp_1 : dim_time DimTime = 1 := eq_refl.
+
 Lemma dim_basis_self (b : BaseDim)
   : dim_basis b b = 1.
 Proof.
@@ -608,6 +617,10 @@ Definition dim_area : Dimension := (2 * dim_length)%dim.
 Definition dim_volume : Dimension := (3 * dim_length)%dim.
 Definition dim_wavenumber : Dimension := (- dim_length)%dim.
 
+Example dim_area_length_exp : dim_area DimLength = 2 := eq_refl.
+Example dim_volume_length_exp : dim_volume DimLength = 3 := eq_refl.
+Example dim_wavenumber_length_exp : dim_wavenumber DimLength = -1 := eq_refl.
+
 Lemma dim_area_eq
   : dim_area == (dim_length + dim_length)%dim.
 Proof.
@@ -634,6 +647,12 @@ Definition dim_jerk : Dimension := (dim_length - dim_time - dim_time - dim_time)
 Definition dim_frequency : Dimension := (- dim_time)%dim.
 Definition dim_angular_velocity : Dimension := (- dim_time)%dim.
 
+Example dim_velocity_length_exp : dim_velocity DimLength = 1 := eq_refl.
+Example dim_velocity_time_exp : dim_velocity DimTime = -1 := eq_refl.
+Example dim_acceleration_length_exp : dim_acceleration DimLength = 1 := eq_refl.
+Example dim_acceleration_time_exp : dim_acceleration DimTime = -2 := eq_refl.
+Example dim_frequency_time_exp : dim_frequency DimTime = -1 := eq_refl.
+
 Definition dim_momentum : Dimension := (dim_mass + dim_velocity)%dim.
 Definition dim_force : Dimension := (dim_mass + dim_acceleration)%dim.
 Definition dim_energy : Dimension := (dim_force + dim_length)%dim.
@@ -642,6 +661,15 @@ Definition dim_pressure : Dimension := (dim_force - dim_area)%dim.
 Definition dim_density : Dimension := (dim_mass - dim_volume)%dim.
 Definition dim_torque : Dimension := (dim_force + dim_length)%dim.
 Definition dim_angular_momentum : Dimension := (dim_momentum + dim_length)%dim.
+
+Example dim_force_mass_exp : dim_force DimMass = 1 := eq_refl.
+Example dim_force_length_exp : dim_force DimLength = 1 := eq_refl.
+Example dim_force_time_exp : dim_force DimTime = -2 := eq_refl.
+Example dim_energy_mass_exp : dim_energy DimMass = 1 := eq_refl.
+Example dim_energy_length_exp : dim_energy DimLength = 2 := eq_refl.
+Example dim_energy_time_exp : dim_energy DimTime = -2 := eq_refl.
+Example dim_density_mass_exp : dim_density DimMass = 1 := eq_refl.
+Example dim_density_length_exp : dim_density DimLength = -3 := eq_refl.
 
 Lemma dim_velocity_eq
   : dim_velocity == (dim_length + (- dim_time))%dim.
@@ -723,6 +751,11 @@ Definition dim_magnetic_field : Dimension := (dim_magnetic_flux - dim_area)%dim.
 Definition dim_electric_field : Dimension := (dim_voltage - dim_length)%dim.
 Definition dim_permittivity : Dimension := (dim_capacitance - dim_length)%dim.
 Definition dim_permeability : Dimension := (dim_inductance - dim_length)%dim.
+
+Example dim_charge_current_exp : dim_charge DimCurrent = 1 := eq_refl.
+Example dim_charge_time_exp : dim_charge DimTime = 1 := eq_refl.
+Example dim_voltage_current_exp : dim_voltage DimCurrent = -1 := eq_refl.
+Example dim_resistance_current_exp : dim_resistance DimCurrent = -2 := eq_refl.
 
 Lemma dim_charge_eq
   : dim_charge == (dim_current + dim_time)%dim.
