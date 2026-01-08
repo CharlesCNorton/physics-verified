@@ -854,25 +854,59 @@ Arguments magnitude {d}.
 Definition Qadd {d : Dimension} (x y : Quantity d) : Quantity d :=
   mkQ (Rplus (magnitude x) (magnitude y)).
 
+Example add_lengths (x y : Quantity dim_length) : Quantity dim_length :=
+  Qadd x y.
+
 Definition Qopp {d : Dimension} (x : Quantity d) : Quantity d :=
   mkQ (Ropp (magnitude x)).
 
+Example negate_velocity (v : Quantity dim_velocity) : Quantity dim_velocity :=
+  Qopp v.
+
 Definition Qsub {d : Dimension} (x y : Quantity d) : Quantity d :=
   mkQ (Rplus (magnitude x) (Ropp (magnitude y))).
+
+Example temperature_difference (t1 t2 : Quantity dim_temperature)
+  : Quantity dim_temperature :=
+  Qsub t1 t2.
 
 Definition Qmul {d1 d2 : Dimension} (x : Quantity d1) (y : Quantity d2)
   : Quantity (d1 + d2)%dim :=
   mkQ (Rmult (magnitude x) (magnitude y)).
 
+Example area_from_lengths (l w : Quantity dim_length)
+  : Quantity (dim_length + dim_length)%dim :=
+  Qmul l w.
+
+Example work_from_force_distance (f : Quantity dim_force) (d : Quantity dim_length)
+  : Quantity dim_energy :=
+  Qmul f d.
+
 Definition Qdiv {d1 d2 : Dimension} (x : Quantity d1) (y : Quantity d2)
   : Quantity (d1 - d2)%dim :=
   mkQ (Rmult (magnitude x) (Rinv (magnitude y))).
 
+Example acceleration_from_velocity_time
+  (v : Quantity dim_velocity) (t : Quantity dim_time)
+  : Quantity dim_acceleration :=
+  Qdiv v t.
+
+Example density_from_mass_volume
+  (m : Quantity dim_mass) (vol : Quantity dim_volume)
+  : Quantity dim_density :=
+  Qdiv m vol.
+
 Definition Qinv {d : Dimension} (x : Quantity d) : Quantity (- d)%dim :=
   mkQ (Rinv (magnitude x)).
 
+Example frequency_from_period (t : Quantity dim_time) : Quantity dim_frequency :=
+  Qinv t.
+
 Definition Qscale {d : Dimension} (k : R) (x : Quantity d) : Quantity d :=
   mkQ (Rmult k (magnitude x)).
+
+Example double_force (k : R) (f : Quantity dim_force) : Quantity dim_force :=
+  Qscale k f.
 
 Definition Qeq {d : Dimension} (x y : Quantity d) : Prop :=
   magnitude x = magnitude y.
