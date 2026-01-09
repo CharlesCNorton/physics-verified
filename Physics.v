@@ -3734,4 +3734,147 @@ Proof.
   destruct b; reflexivity.
 Qed.
 
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                        LEVEL 6: DYNAMICS                                    *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Newton's Second Law: F = ma                                                *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma newtons_second_law_dimension
+  : (dim_mass + dim_acceleration)%dim == dim_force.
+Proof.
+  unfold dim_force.
+  apply dim_eq_refl.
+Qed.
+
+Definition force_from_mass_accel
+  (m : Quantity dim_mass) (a : Vec3 dim_acceleration)
+  : Vec3 dim_force :=
+  mkVec3
+    (Qtransport newtons_second_law_dimension (Qmul m (vx a)))
+    (Qtransport newtons_second_law_dimension (Qmul m (vy a)))
+    (Qtransport newtons_second_law_dimension (Qmul m (vz a))).
+
+Definition accel_from_force_mass
+  (F : Vec3 dim_force) (m : Quantity dim_mass)
+  : Vec3 (dim_force - dim_mass)%dim :=
+  mkVec3 (Qdiv (vx F) m) (Qdiv (vy F) m) (Qdiv (vz F) m).
+
+Lemma force_div_mass_is_accel
+  : (dim_force - dim_mass)%dim == dim_acceleration.
+Proof.
+  unfold dim_force, dim_acceleration, dim_sub, dim_eq, dim_add, dim_neg.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Momentum                                                                   *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition compute_momentum
+  (m : Quantity dim_mass) (v : Vec3 dim_velocity)
+  : Vec3 dim_momentum :=
+  mkVec3
+    (mkQ (Rmult (magnitude m) (magnitude (vx v))))
+    (mkQ (Rmult (magnitude m) (magnitude (vy v))))
+    (mkQ (Rmult (magnitude m) (magnitude (vz v)))).
+
+Lemma momentum_dimension_check
+  : (dim_mass + dim_velocity)%dim == dim_momentum.
+Proof.
+  unfold dim_momentum.
+  apply dim_eq_refl.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Impulse-Momentum Theorem                                                   *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma impulse_dimension
+  : (dim_force + dim_time)%dim == dim_momentum.
+Proof.
+  unfold dim_force, dim_momentum, dim_velocity, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Kinetic Energy Computation                                                 *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition compute_kinetic_energy
+  (m : Quantity dim_mass) (v : Vec3 dim_velocity)
+  : Quantity (dim_mass + (dim_velocity + dim_velocity))%dim :=
+  Qscale (Rmult (Rinv (Rplus R1 R1)) R1)
+    (Qmul m (vec_dot v v)).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Power Computation                                                          *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition compute_power
+  (F : Vec3 dim_force) (v : Vec3 dim_velocity)
+  : Quantity (dim_force + dim_velocity)%dim :=
+  vec_dot F v.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Gravitational Force                                                        *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma gravitational_force_dimension
+  : (dim_gravitational + dim_mass + dim_mass - dim_area)%dim == dim_force.
+Proof.
+  unfold dim_gravitational, dim_force, dim_acceleration, dim_volume, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Torque and Angular Momentum                                                *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma torque_dimension
+  : (dim_length + dim_force)%dim == dim_torque.
+Proof.
+  unfold dim_torque.
+  rewrite dim_add_comm.
+  apply dim_eq_refl.
+Qed.
+
+Definition torque_from_r_cross_F
+  (r : Vec3 dim_length) (F : Vec3 dim_force)
+  : Vec3 (dim_length + dim_force)%dim :=
+  vec_cross r F.
+
+Lemma angular_momentum_dimension
+  : (dim_length + dim_momentum)%dim == dim_angular_momentum.
+Proof.
+  unfold dim_angular_momentum.
+  rewrite dim_add_comm.
+  apply dim_eq_refl.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Newton's Third Law Witness                                                 *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition action_reaction
+  (F_12 : Vec3 dim_force)
+  : Vec3 dim_force := vec_opp F_12.
+
+Lemma action_reaction_sum_zero
+  (F : Vec3 dim_force)
+  : vec_add F (action_reaction F) =v= vec_zero dim_force.
+Proof.
+  apply vec_add_opp_r.
+Qed.
+
 End Quantities.
