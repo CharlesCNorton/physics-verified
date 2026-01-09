@@ -841,6 +841,103 @@ Definition dim_concentration : Dimension := (dim_amount - dim_volume)%dim.
 Definition dim_molar_mass : Dimension := (dim_mass - dim_amount)%dim.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Derived Dimensions - Constants                               *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition dim_action : Dimension := (dim_energy + dim_time)%dim.
+Definition dim_gravitational : Dimension := (dim_volume - dim_mass - dim_time - dim_time)%dim.
+Definition dim_boltzmann : Dimension := (dim_energy - dim_temperature)%dim.
+Definition dim_avogadro : Dimension := (- dim_amount)%dim.
+
+Example dim_action_mass_exp : dim_action DimMass = 1 := eq_refl.
+Example dim_action_length_exp : dim_action DimLength = 2 := eq_refl.
+Example dim_action_time_exp : dim_action DimTime = -1 := eq_refl.
+
+Example dim_gravitational_mass_exp : dim_gravitational DimMass = -1 := eq_refl.
+Example dim_gravitational_length_exp : dim_gravitational DimLength = 3 := eq_refl.
+Example dim_gravitational_time_exp : dim_gravitational DimTime = -2 := eq_refl.
+
+Example dim_boltzmann_mass_exp : dim_boltzmann DimMass = 1 := eq_refl.
+Example dim_boltzmann_length_exp : dim_boltzmann DimLength = 2 := eq_refl.
+Example dim_boltzmann_time_exp : dim_boltzmann DimTime = -2 := eq_refl.
+Example dim_boltzmann_temp_exp : dim_boltzmann DimTemperature = -1 := eq_refl.
+
+Example dim_avogadro_amount_exp : dim_avogadro DimAmount = -1 := eq_refl.
+
+Lemma dim_action_eq
+  : dim_action == (dim_mass + dim_area - dim_time)%dim.
+Proof.
+  unfold dim_action, dim_energy, dim_force, dim_acceleration, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  intro b.
+  lia.
+Qed.
+
+Lemma dim_gravitational_eq
+  : dim_gravitational == (dim_length + dim_length + dim_length - dim_mass - dim_time - dim_time)%dim.
+Proof.
+  unfold dim_gravitational, dim_volume, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  intro b.
+  lia.
+Qed.
+
+Lemma dim_boltzmann_eq
+  : dim_boltzmann == dim_entropy.
+Proof.
+  unfold dim_boltzmann, dim_entropy.
+  apply dim_eq_refl.
+Qed.
+
+Lemma dim_action_not_zero
+  : ~ (dim_action == dim_zero).
+Proof.
+  unfold dim_action, dim_energy, dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_zero.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro H.
+  specialize (H DimMass).
+  simpl in H.
+  lia.
+Qed.
+
+Lemma dim_gravitational_not_zero
+  : ~ (dim_gravitational == dim_zero).
+Proof.
+  unfold dim_gravitational, dim_volume, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_zero, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro H.
+  specialize (H DimMass).
+  simpl in H.
+  lia.
+Qed.
+
+Lemma dim_action_not_energy
+  : ~ (dim_action == dim_energy).
+Proof.
+  unfold dim_action, dim_energy, dim_eq, dim_add.
+  intro H.
+  specialize (H DimTime).
+  unfold dim_force, dim_acceleration, dim_sub, dim_add, dim_neg in H.
+  unfold dim_mass, dim_length, dim_time, dim_basis in H.
+  simpl in H.
+  lia.
+Qed.
+
+Lemma dim_gravitational_not_force
+  : ~ (dim_gravitational == dim_force).
+Proof.
+  unfold dim_gravitational, dim_force, dim_volume, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro H.
+  specialize (H DimLength).
+  simpl in H.
+  lia.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Dimensionless Quantities                                     *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
@@ -2335,6 +2432,310 @@ Proof.
   unfold Qeq, Qsub, Qadd, Qopp, meters.
   simpl.
   reflexivity.
+Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                        LEVEL 3: PHYSICAL CONSTANTS                          *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Fundamental Constants: Value Parameters                                    *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Variable val_c : R.
+Variable val_hbar : R.
+Variable val_G : R.
+Variable val_kB : R.
+Variable val_NA : R.
+Variable val_e : R.
+Variable val_eps0 : R.
+Variable val_mu0 : R.
+Variable val_me : R.
+Variable val_mp : R.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Fundamental Constants: Definitions                                         *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition const_c : Quantity dim_velocity := mkQ val_c.
+Definition const_hbar : Quantity dim_action := mkQ val_hbar.
+Definition const_G : Quantity dim_gravitational := mkQ val_G.
+Definition const_kB : Quantity dim_boltzmann := mkQ val_kB.
+Definition const_NA : Quantity dim_avogadro := mkQ val_NA.
+Definition const_e : Quantity dim_charge := mkQ val_e.
+Definition const_eps0 : Quantity dim_permittivity := mkQ val_eps0.
+Definition const_mu0 : Quantity dim_permeability := mkQ val_mu0.
+Definition const_me : Quantity dim_mass := mkQ val_me.
+Definition const_mp : Quantity dim_mass := mkQ val_mp.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Fundamental Constants: Magnitude Extraction                                *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma const_c_magnitude : magnitude const_c = val_c.
+Proof. reflexivity. Qed.
+
+Lemma const_hbar_magnitude : magnitude const_hbar = val_hbar.
+Proof. reflexivity. Qed.
+
+Lemma const_G_magnitude : magnitude const_G = val_G.
+Proof. reflexivity. Qed.
+
+Lemma const_kB_magnitude : magnitude const_kB = val_kB.
+Proof. reflexivity. Qed.
+
+Lemma const_NA_magnitude : magnitude const_NA = val_NA.
+Proof. reflexivity. Qed.
+
+Lemma const_e_magnitude : magnitude const_e = val_e.
+Proof. reflexivity. Qed.
+
+Lemma const_eps0_magnitude : magnitude const_eps0 = val_eps0.
+Proof. reflexivity. Qed.
+
+Lemma const_mu0_magnitude : magnitude const_mu0 = val_mu0.
+Proof. reflexivity. Qed.
+
+Lemma const_me_magnitude : magnitude const_me = val_me.
+Proof. reflexivity. Qed.
+
+Lemma const_mp_magnitude : magnitude const_mp = val_mp.
+Proof. reflexivity. Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Derived Constants: Fine Structure Constant                                 *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition dim_fine_structure : Dimension := dim_zero.
+
+Lemma fine_structure_dimensionless
+  : dim_fine_structure == dim_dimensionless.
+Proof.
+  unfold dim_fine_structure, dim_dimensionless.
+  apply dim_eq_refl.
+Qed.
+
+Lemma fine_structure_formula_dimension
+  : (dim_charge + dim_charge - dim_permittivity - dim_action - dim_velocity)%dim == dim_zero.
+Proof.
+  unfold dim_charge, dim_permittivity, dim_action, dim_velocity.
+  unfold dim_capacitance, dim_energy, dim_force, dim_acceleration, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_zero.
+  unfold dim_current, dim_time, dim_mass, dim_length, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Planck Units: Dimension Witnesses                                          *)
+(*  ℓ_P² = ℏG/c³, m_P² = ℏc/G, t_P² = ℏG/c⁵                                   *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma planck_length_squared_dimension
+  : (dim_action + dim_gravitational - dim_velocity - dim_velocity - dim_velocity)%dim == (dim_length + dim_length)%dim.
+Proof.
+  unfold dim_action, dim_gravitational, dim_velocity, dim_energy, dim_volume.
+  unfold dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma planck_mass_squared_dimension
+  : (dim_action + dim_velocity - dim_gravitational)%dim == (dim_mass + dim_mass)%dim.
+Proof.
+  unfold dim_action, dim_gravitational, dim_velocity, dim_energy, dim_volume.
+  unfold dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma planck_time_squared_dimension
+  : (dim_action + dim_gravitational - dim_velocity - dim_velocity - dim_velocity - dim_velocity - dim_velocity)%dim == (dim_time + dim_time)%dim.
+Proof.
+  unfold dim_action, dim_gravitational, dim_velocity, dim_energy, dim_volume.
+  unfold dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Electromagnetic Constant Relationship                                      *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma eps0_mu0_c2_dimensionless
+  : (dim_permittivity + dim_permeability + dim_velocity + dim_velocity)%dim == dim_zero.
+Proof.
+  unfold dim_permittivity, dim_permeability, dim_capacitance, dim_inductance.
+  unfold dim_charge, dim_voltage, dim_magnetic_flux, dim_velocity.
+  unfold dim_energy, dim_force, dim_acceleration, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_zero.
+  unfold dim_current, dim_time, dim_mass, dim_length, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Physical Law Dimension Witnesses                                           *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Example witness_gravitational_force_dimension
+  : (dim_gravitational + dim_mass + dim_mass - dim_area)%dim == dim_force.
+Proof.
+  unfold dim_gravitational, dim_force, dim_acceleration, dim_volume, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Example witness_coulomb_force_dimension
+  : (dim_charge + dim_charge - dim_permittivity - dim_area)%dim == dim_force.
+Proof.
+  unfold dim_charge, dim_permittivity, dim_capacitance, dim_voltage.
+  unfold dim_force, dim_acceleration, dim_energy, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_current, dim_time, dim_mass, dim_length, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Example witness_photon_energy_dimension
+  : (dim_action + dim_frequency)%dim == dim_energy.
+Proof.
+  unfold dim_action, dim_frequency, dim_energy, dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Example witness_de_broglie_dimension
+  : (dim_action - dim_momentum)%dim == dim_length.
+Proof.
+  unfold dim_action, dim_momentum, dim_velocity, dim_energy.
+  unfold dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Example witness_thermal_energy_dimension
+  : (dim_boltzmann + dim_temperature)%dim == dim_energy.
+Proof.
+  unfold dim_boltzmann, dim_energy, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  intro b.
+  lia.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Constant Type-Safety Witnesses                                             *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma velocity_times_time_is_length
+  : (dim_velocity + dim_time)%dim == dim_length.
+Proof.
+  unfold dim_velocity, dim_sub, dim_eq, dim_add, dim_neg.
+  unfold dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Example witness_use_c_in_velocity_calc
+  (t : Quantity dim_time)
+  : Quantity dim_length :=
+  Qtransport velocity_times_time_is_length (Qmul const_c t).
+
+Example witness_use_G_in_gravity_calc
+  (m1 m2 : Quantity dim_mass) (r : Quantity dim_length)
+  : Quantity (dim_gravitational + dim_mass + dim_mass - (dim_length + dim_length))%dim :=
+  Qdiv (Qmul (Qmul const_G m1) m2) (Qmul r r).
+
+Example witness_use_hbar_in_energy_calc
+  (f : Quantity dim_frequency)
+  : Quantity (dim_action + dim_frequency)%dim :=
+  Qmul const_hbar f.
+
+Example witness_use_kB_in_thermal_calc
+  (T : Quantity dim_temperature)
+  : Quantity (dim_boltzmann + dim_temperature)%dim :=
+  Qmul const_kB T.
+
+Example witness_use_e_in_charge_calc
+  (n : R)
+  : Quantity dim_charge :=
+  Qscale n const_e.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Counterexamples: Constants Cannot Be Added Across Dimensions               *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Fail Definition bad_add_c_hbar := Qadd const_c const_hbar.
+Fail Definition bad_add_G_kB := Qadd const_G const_kB.
+Fail Definition bad_add_e_me := Qadd const_e const_me.
+Fail Definition bad_add_eps0_mu0 := Qadd const_eps0 const_mu0.
+Fail Definition bad_add_c_G := Qadd const_c const_G.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Dimension Mismatch Proofs for Constants                                    *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma const_c_not_hbar_dim
+  : ~ (dim_velocity == dim_action).
+Proof.
+  unfold dim_velocity, dim_action, dim_energy, dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro H.
+  specialize (H DimMass).
+  simpl in H.
+  lia.
+Qed.
+
+Lemma const_G_not_kB_dim
+  : ~ (dim_gravitational == dim_boltzmann).
+Proof.
+  unfold dim_gravitational, dim_boltzmann, dim_volume, dim_energy.
+  unfold dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_temperature, dim_basis.
+  intro H.
+  specialize (H DimTemperature).
+  simpl in H.
+  lia.
+Qed.
+
+Lemma const_e_not_me_dim
+  : ~ (dim_charge == dim_mass).
+Proof.
+  unfold dim_charge.
+  unfold dim_eq, dim_add.
+  unfold dim_current, dim_time, dim_mass, dim_basis.
+  intro H.
+  specialize (H DimCurrent).
+  simpl in H.
+  lia.
+Qed.
+
+Lemma const_eps0_not_mu0_dim
+  : ~ (dim_permittivity == dim_permeability).
+Proof.
+  unfold dim_permittivity, dim_permeability, dim_capacitance, dim_inductance.
+  unfold dim_charge, dim_voltage, dim_magnetic_flux.
+  unfold dim_energy, dim_force, dim_acceleration, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_current, dim_time, dim_mass, dim_length, dim_basis.
+  intro H.
+  specialize (H DimCurrent).
+  simpl in H.
+  lia.
 Qed.
 
 End Quantities.
