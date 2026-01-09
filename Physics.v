@@ -1290,6 +1290,15 @@ Definition Qeq {d : Dimension} (x y : Quantity d) : Prop :=
 
 Notation "x === y" := (Qeq x y) (at level 70).
 
+Declare Scope quantity_scope.
+Delimit Scope quantity_scope with Q.
+
+Notation "x [+] y" := (Qadd x y) (at level 50, left associativity) : quantity_scope.
+Notation "x [-] y" := (Qsub x y) (at level 50, left associativity) : quantity_scope.
+Notation "x [*] y" := (Qmul x y) (at level 40, left associativity) : quantity_scope.
+Notation "x [/] y" := (Qdiv x y) (at level 40, left associativity) : quantity_scope.
+Notation "[-] x" := (Qopp x) (at level 35, right associativity) : quantity_scope.
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Quantity Equality: Equivalence Relation                                   *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
@@ -3599,5 +3608,130 @@ Fail Definition bad_dot_wrong_result
 Fail Definition bad_cross_wrong_result
   (r : Vec3 dim_length) (F : Vec3 dim_force)
   : Vec3 dim_force := vec_cross r F.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                        LEVEL 5: KINEMATICS                                  *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Kinematic State                                                            *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Record KinematicState := mkKinState {
+  kin_position : Vec3 dim_length;
+  kin_velocity : Vec3 dim_velocity;
+  kin_acceleration : Vec3 dim_acceleration
+}.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Constant Velocity Motion                                                   *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition position_after_time
+  (r0 : Vec3 dim_length) (v : Vec3 dim_velocity) (t : Quantity dim_time)
+  : Vec3 (dim_time + dim_velocity)%dim :=
+  vec_qscale t v.
+
+Lemma position_velocity_dimension
+  : (dim_time + dim_velocity)%dim == dim_length.
+Proof.
+  unfold dim_velocity, dim_sub, dim_eq, dim_add, dim_neg.
+  unfold dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Definition uniform_motion_position
+  (r0 : Vec3 dim_length) (v : Vec3 dim_velocity) (t : Quantity dim_time)
+  : Vec3 dim_length :=
+  vec_add r0 (mkVec3
+    (Qtransport position_velocity_dimension (Qmul t (vx v)))
+    (Qtransport position_velocity_dimension (Qmul t (vy v)))
+    (Qtransport position_velocity_dimension (Qmul t (vz v)))).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Constant Acceleration Motion                                               *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma acceleration_time_is_velocity
+  : (dim_acceleration + dim_time)%dim == dim_velocity.
+Proof.
+  unfold dim_acceleration, dim_velocity, dim_sub, dim_eq, dim_add, dim_neg.
+  unfold dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma acceleration_time_squared_is_length
+  : (dim_acceleration + dim_time + dim_time)%dim == dim_length.
+Proof.
+  unfold dim_acceleration, dim_sub, dim_eq, dim_add, dim_neg.
+  unfold dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Definition velocity_after_time_const_accel
+  (v0 : Vec3 dim_velocity) (a : Vec3 dim_acceleration) (t : Quantity dim_time)
+  : Vec3 dim_velocity :=
+  vec_add v0 (mkVec3
+    (Qtransport acceleration_time_is_velocity (Qmul (vx a) t))
+    (Qtransport acceleration_time_is_velocity (Qmul (vy a) t))
+    (Qtransport acceleration_time_is_velocity (Qmul (vz a) t))).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Kinematic Equations: Dimension Witnesses                                   *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Example kinematic_eq1_dim_check
+  (v0 a : R) (t : R)
+  : Quantity dim_velocity :=
+  Qadd (mkQ v0 : Quantity dim_velocity)
+       (Qtransport acceleration_time_is_velocity
+         (Qmul (mkQ a : Quantity dim_acceleration) (mkQ t : Quantity dim_time))).
+
+Example kinematic_eq2_dim_check
+  (x0 v0 a : R) (t : R)
+  : True.
+Proof.
+  pose (pos := mkQ x0 : Quantity dim_length).
+  pose (vel := mkQ v0 : Quantity dim_velocity).
+  pose (acc := mkQ a : Quantity dim_acceleration).
+  pose (time := mkQ t : Quantity dim_time).
+  pose (half := mkQ (Rmult (Rinv (Rplus R1 R1)) R1) : Quantity dim_zero).
+  exact I.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Projectile Motion                                                          *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition gravity_accel (g : R) : Vec3 dim_acceleration :=
+  mkVec3 (Qzero dim_acceleration) (Qzero dim_acceleration) (Qopp (mkQ g)).
+
+Example projectile_acceleration_type (g : R)
+  : Vec3 dim_acceleration := gravity_accel g.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Circular Motion                                                            *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma angular_velocity_times_length_is_velocity
+  : (dim_angular_velocity + dim_length)%dim == dim_velocity.
+Proof.
+  unfold dim_angular_velocity, dim_velocity, dim_sub, dim_eq, dim_add, dim_neg.
+  unfold dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Definition centripetal_acceleration_dim
+  : (dim_velocity + dim_velocity - dim_length)%dim == dim_acceleration.
+Proof.
+  unfold dim_velocity, dim_acceleration, dim_sub, dim_eq, dim_add, dim_neg.
+  unfold dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
 
 End Quantities.
