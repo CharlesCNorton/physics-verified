@@ -841,6 +841,115 @@ Definition dim_concentration : Dimension := (dim_amount - dim_volume)%dim.
 Definition dim_molar_mass : Dimension := (dim_mass - dim_amount)%dim.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Derived Dimensions - Fluid Mechanics                         *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition dim_dynamic_viscosity : Dimension := (dim_pressure + dim_time)%dim.
+Definition dim_kinematic_viscosity : Dimension := (dim_area - dim_time)%dim.
+Definition dim_surface_tension : Dimension := (dim_force - dim_length)%dim.
+
+Example dim_dynamic_viscosity_mass_exp : dim_dynamic_viscosity DimMass = 1 := eq_refl.
+Example dim_dynamic_viscosity_length_exp : dim_dynamic_viscosity DimLength = -1 := eq_refl.
+Example dim_dynamic_viscosity_time_exp : dim_dynamic_viscosity DimTime = -1 := eq_refl.
+
+Example dim_kinematic_viscosity_length_exp : dim_kinematic_viscosity DimLength = 2 := eq_refl.
+Example dim_kinematic_viscosity_time_exp : dim_kinematic_viscosity DimTime = -1 := eq_refl.
+
+Example dim_surface_tension_mass_exp : dim_surface_tension DimMass = 1 := eq_refl.
+Example dim_surface_tension_time_exp : dim_surface_tension DimTime = -2 := eq_refl.
+
+Lemma dim_dynamic_viscosity_eq
+  : dim_dynamic_viscosity == (dim_mass - dim_length - dim_time)%dim.
+Proof.
+  unfold dim_dynamic_viscosity, dim_pressure, dim_force, dim_area, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma dim_surface_tension_eq
+  : dim_surface_tension == (dim_mass - dim_time - dim_time)%dim.
+Proof.
+  unfold dim_surface_tension, dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Derived Dimensions - Radiation                               *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition dim_radioactivity : Dimension := (- dim_time)%dim.
+Definition dim_absorbed_dose : Dimension := (dim_energy - dim_mass)%dim.
+Definition dim_equivalent_dose : Dimension := (dim_energy - dim_mass)%dim.
+
+Example dim_radioactivity_time_exp : dim_radioactivity DimTime = -1 := eq_refl.
+
+Example dim_absorbed_dose_length_exp : dim_absorbed_dose DimLength = 2 := eq_refl.
+Example dim_absorbed_dose_time_exp : dim_absorbed_dose DimTime = -2 := eq_refl.
+Example dim_absorbed_dose_mass_exp : dim_absorbed_dose DimMass = 0 := eq_refl.
+
+Lemma dim_radioactivity_eq_frequency
+  : dim_radioactivity == dim_frequency.
+Proof.
+  unfold dim_radioactivity, dim_frequency.
+  apply dim_eq_refl.
+Qed.
+
+Lemma dim_absorbed_dose_eq
+  : dim_absorbed_dose == (dim_length + dim_length - dim_time - dim_time)%dim.
+Proof.
+  unfold dim_absorbed_dose, dim_energy, dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma dim_equivalent_dose_eq_absorbed
+  : dim_equivalent_dose == dim_absorbed_dose.
+Proof.
+  unfold dim_equivalent_dose, dim_absorbed_dose.
+  apply dim_eq_refl.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Derived Dimensions - Additional Constants                    *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition dim_stefan_boltzmann : Dimension :=
+  (dim_power - dim_area - dim_temperature - dim_temperature - dim_temperature - dim_temperature)%dim.
+Definition dim_gas_constant : Dimension := (dim_energy - dim_amount - dim_temperature)%dim.
+Definition dim_faraday : Dimension := (dim_charge - dim_amount)%dim.
+
+Example dim_stefan_boltzmann_mass_exp : dim_stefan_boltzmann DimMass = 1 := eq_refl.
+Example dim_stefan_boltzmann_time_exp : dim_stefan_boltzmann DimTime = -3 := eq_refl.
+Example dim_stefan_boltzmann_temp_exp : dim_stefan_boltzmann DimTemperature = -4 := eq_refl.
+
+Example dim_gas_constant_mass_exp : dim_gas_constant DimMass = 1 := eq_refl.
+Example dim_gas_constant_length_exp : dim_gas_constant DimLength = 2 := eq_refl.
+Example dim_gas_constant_time_exp : dim_gas_constant DimTime = -2 := eq_refl.
+Example dim_gas_constant_amount_exp : dim_gas_constant DimAmount = -1 := eq_refl.
+Example dim_gas_constant_temp_exp : dim_gas_constant DimTemperature = -1 := eq_refl.
+
+Example dim_faraday_current_exp : dim_faraday DimCurrent = 1 := eq_refl.
+Example dim_faraday_time_exp : dim_faraday DimTime = 1 := eq_refl.
+Example dim_faraday_amount_exp : dim_faraday DimAmount = -1 := eq_refl.
+
+Example dim_faraday_eq_charge_per_amount
+  : dim_faraday == (dim_current + dim_time - dim_amount)%dim.
+Proof.
+  unfold dim_faraday, dim_charge, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_current, dim_time, dim_amount, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Derived Dimensions - Constants                               *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
@@ -1719,6 +1828,22 @@ Definition unit_tesla : Quantity dim_magnetic_field := mkQ R1.
 Definition unit_lumen : Quantity dim_luminous_flux := mkQ R1.
 Definition unit_lux : Quantity dim_illuminance := mkQ R1.
 Definition unit_katal : Quantity dim_catalytic_activity := mkQ R1.
+Definition unit_becquerel : Quantity dim_radioactivity := mkQ R1.
+Definition unit_gray : Quantity dim_absorbed_dose := mkQ R1.
+Definition unit_sievert : Quantity dim_equivalent_dose := mkQ R1.
+
+Lemma unit_becquerel_eq_hertz_dim
+  : dim_radioactivity == dim_frequency.
+Proof.
+  apply dim_radioactivity_eq_frequency.
+Qed.
+
+Lemma unit_gray_eq_sievert_dim
+  : dim_absorbed_dose == dim_equivalent_dose.
+Proof.
+  apply dim_eq_sym.
+  apply dim_equivalent_dose_eq_absorbed.
+Qed.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Derived Unit Dimension Witnesses                                           *)
@@ -2452,6 +2577,9 @@ Variable val_eps0 : R.
 Variable val_mu0 : R.
 Variable val_me : R.
 Variable val_mp : R.
+Variable val_sigma : R.
+Variable val_R_gas : R.
+Variable val_F : R.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Fundamental Constants: Definitions                                         *)
@@ -2467,6 +2595,9 @@ Definition const_eps0 : Quantity dim_permittivity := mkQ val_eps0.
 Definition const_mu0 : Quantity dim_permeability := mkQ val_mu0.
 Definition const_me : Quantity dim_mass := mkQ val_me.
 Definition const_mp : Quantity dim_mass := mkQ val_mp.
+Definition const_sigma : Quantity dim_stefan_boltzmann := mkQ val_sigma.
+Definition const_R_gas : Quantity dim_gas_constant := mkQ val_R_gas.
+Definition const_F : Quantity dim_faraday := mkQ val_F.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Fundamental Constants: Magnitude Extraction                                *)
@@ -2501,6 +2632,40 @@ Proof. reflexivity. Qed.
 
 Lemma const_mp_magnitude : magnitude const_mp = val_mp.
 Proof. reflexivity. Qed.
+
+Lemma const_sigma_magnitude : magnitude const_sigma = val_sigma.
+Proof. reflexivity. Qed.
+
+Lemma const_R_gas_magnitude : magnitude const_R_gas = val_R_gas.
+Proof. reflexivity. Qed.
+
+Lemma const_F_magnitude : magnitude const_F = val_F.
+Proof. reflexivity. Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Derived Constant Relationships                                             *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma gas_constant_dimension_eq_boltzmann_times_avogadro
+  : dim_gas_constant == (dim_boltzmann + dim_avogadro)%dim.
+Proof.
+  unfold dim_gas_constant, dim_boltzmann, dim_avogadro, dim_energy, dim_sub.
+  unfold dim_force, dim_acceleration.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_mass, dim_length, dim_time, dim_temperature, dim_amount, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma faraday_dimension_eq_charge_times_avogadro
+  : dim_faraday == (dim_charge + dim_avogadro)%dim.
+Proof.
+  unfold dim_faraday, dim_charge, dim_avogadro, dim_sub.
+  unfold dim_eq, dim_add, dim_neg.
+  unfold dim_current, dim_time, dim_amount, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Derived Constants: Fine Structure Constant                                 *)
@@ -2560,6 +2725,18 @@ Proof.
   unfold dim_force, dim_acceleration, dim_sub.
   unfold dim_eq, dim_add, dim_neg, dim_scale.
   unfold dim_mass, dim_length, dim_time, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma planck_temperature_squared_dimension
+  : (dim_action + dim_velocity + dim_velocity + dim_velocity + dim_velocity + dim_velocity
+     - dim_gravitational - dim_boltzmann - dim_boltzmann)%dim == (dim_temperature + dim_temperature)%dim.
+Proof.
+  unfold dim_action, dim_gravitational, dim_velocity, dim_boltzmann, dim_energy, dim_volume.
+  unfold dim_force, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale.
+  unfold dim_mass, dim_length, dim_time, dim_temperature, dim_basis.
   intro b.
   destruct b; reflexivity.
 Qed.
