@@ -3494,6 +3494,44 @@ Definition vec_mag {d : Dimension} (v : Vec3 d)
   : Quantity d :=
   mkQ (Rsqrt (magnitude (vec_mag_sq v))).
 
+Definition vec_norm {d : Dimension} (v : Vec3 d) : Quantity d :=
+  mkQ (Rsqrt (magnitude (vec_mag_sq v))).
+
+Lemma vec_norm_eq_vec_mag {d : Dimension} (v : Vec3 d)
+  (H : Rle R0 (magnitude (vec_mag_sq v)))
+  : vec_norm v === vec_mag v H.
+Proof.
+  unfold Qeq, vec_norm, vec_mag.
+  simpl.
+  reflexivity.
+Qed.
+
+Lemma vec_norm_sq {d : Dimension} (v : Vec3 d)
+  : Rmult (magnitude (vec_norm v)) (magnitude (vec_norm v)) = magnitude (vec_mag_sq v).
+Proof.
+  unfold vec_norm.
+  simpl.
+  apply Rsqrt_square.
+  apply vec_mag_sq_nonneg.
+Qed.
+
+Lemma vec_norm_nonneg {d : Dimension} (v : Vec3 d)
+  : Rle R0 (magnitude (vec_norm v)).
+Proof.
+  unfold vec_norm.
+  simpl.
+  apply Rsqrt_nonneg.
+  apply vec_mag_sq_nonneg.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Scalar Triple Product                                                      *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_triple {d : Dimension} (a b c : Vec3 d)
+  : Quantity (d + (d + d))%dim :=
+  vec_dot a (vec_cross b c).
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Physical Vector Witnesses                                                  *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
