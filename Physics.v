@@ -1136,12 +1136,49 @@ Hypothesis Rmult_plus_distr_r : forall x y z, Rmult (Rplus x y) z = Rplus (Rmult
 
 Hypothesis Ropp_mult_l : forall x y, Rmult (Ropp x) y = Ropp (Rmult x y).
 Hypothesis Ropp_mult_r : forall x y, Rmult x (Ropp y) = Ropp (Rmult x y).
+Hypothesis Ropp_plus : forall x y, Ropp (Rplus x y) = Rplus (Ropp x) (Ropp y).
 
 Hypothesis Rinv_1 : Rinv R1 = R1.
 Hypothesis Rinv_involutive : forall x, Rinv (Rinv x) = x.
 Hypothesis Rinv_mult : forall x y, Rinv (Rmult x y) = Rmult (Rinv x) (Rinv y).
 Hypothesis Rmult_Rinv_r : forall x, Rmult x (Rinv x) = R1.
 Hypothesis Rmult_Rinv_l : forall x, Rmult (Rinv x) x = R1.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Ordering Axioms                                                            *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Variable Rle : R -> R -> Prop.
+Variable Rlt : R -> R -> Prop.
+
+Hypothesis Rle_refl : forall x, Rle x x.
+Hypothesis Rle_antisym : forall x y, Rle x y -> Rle y x -> x = y.
+Hypothesis Rle_trans : forall x y z, Rle x y -> Rle y z -> Rle x z.
+
+Hypothesis Rlt_irrefl : forall x, ~ Rlt x x.
+Hypothesis Rlt_trans : forall x y z, Rlt x y -> Rlt y z -> Rlt x z.
+Hypothesis Rlt_le : forall x y, Rlt x y -> Rle x y.
+Hypothesis Rle_lt_dec : forall x y, {Rlt x y} + {Rle y x}.
+
+Hypothesis Rle_0_1 : Rle R0 R1.
+Hypothesis Rlt_0_1 : Rlt R0 R1.
+
+Hypothesis Rplus_le_compat : forall x y z, Rle x y -> Rle (Rplus x z) (Rplus y z).
+Hypothesis Rmult_le_compat_r : forall x y z, Rle R0 z -> Rle x y -> Rle (Rmult x z) (Rmult y z).
+
+Hypothesis Rsquare_nonneg : forall x, Rle R0 (Rmult x x).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Square Root Axioms                                                         *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Variable Rsqrt : R -> R.
+
+Hypothesis Rsqrt_0 : Rsqrt R0 = R0.
+Hypothesis Rsqrt_1 : Rsqrt R1 = R1.
+Hypothesis Rsqrt_square : forall x, Rle R0 x -> Rmult (Rsqrt x) (Rsqrt x) = x.
+Hypothesis Rsqrt_nonneg : forall x, Rle R0 x -> Rle R0 (Rsqrt x).
+Hypothesis Rsqrt_mult : forall x y, Rle R0 x -> Rle R0 y -> Rsqrt (Rmult x y) = Rmult (Rsqrt x) (Rsqrt y).
 
 Record Quantity (d : Dimension) : Type := mkQ {
   magnitude : R
@@ -2914,5 +2951,435 @@ Proof.
   simpl in H.
   lia.
 Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                        LEVEL 4: VECTORS                                     *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  3-Vector Type                                                              *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Record Vec3 (d : Dimension) : Type := mkVec3 {
+  vx : Quantity d;
+  vy : Quantity d;
+  vz : Quantity d
+}.
+
+Arguments mkVec3 {d}.
+Arguments vx {d}.
+Arguments vy {d}.
+Arguments vz {d}.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Vector Zero                                                                *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_zero (d : Dimension) : Vec3 d :=
+  mkVec3 (Qzero d) (Qzero d) (Qzero d).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Vector Addition                                                            *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_add {d : Dimension} (v w : Vec3 d) : Vec3 d :=
+  mkVec3 (Qadd (vx v) (vx w)) (Qadd (vy v) (vy w)) (Qadd (vz v) (vz w)).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Vector Negation                                                            *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_opp {d : Dimension} (v : Vec3 d) : Vec3 d :=
+  mkVec3 (Qopp (vx v)) (Qopp (vy v)) (Qopp (vz v)).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Vector Subtraction                                                         *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_sub {d : Dimension} (v w : Vec3 d) : Vec3 d :=
+  mkVec3 (Qsub (vx v) (vx w)) (Qsub (vy v) (vy w)) (Qsub (vz v) (vz w)).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Scalar Multiplication (dimensionless scalar)                               *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_scale {d : Dimension} (k : R) (v : Vec3 d) : Vec3 d :=
+  mkVec3 (Qscale k (vx v)) (Qscale k (vy v)) (Qscale k (vz v)).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Quantity Scaling (changes dimension)                                       *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_qscale {d1 d2 : Dimension} (q : Quantity d1) (v : Vec3 d2)
+  : Vec3 (d1 + d2)%dim :=
+  mkVec3 (Qmul q (vx v)) (Qmul q (vy v)) (Qmul q (vz v)).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Vector Equality                                                            *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_eq {d : Dimension} (v w : Vec3 d) : Prop :=
+  vx v === vx w /\ vy v === vy w /\ vz v === vz w.
+
+Notation "v =v= w" := (vec_eq v w) (at level 70).
+
+Lemma vec_eq_refl {d : Dimension} (v : Vec3 d)
+  : v =v= v.
+Proof.
+  unfold vec_eq.
+  repeat split; apply Qeq_refl.
+Qed.
+
+Lemma vec_eq_sym {d : Dimension} (v w : Vec3 d)
+  : v =v= w -> w =v= v.
+Proof.
+  unfold vec_eq.
+  intros [Hx [Hy Hz]].
+  repeat split; apply Qeq_sym; assumption.
+Qed.
+
+Lemma vec_eq_trans {d : Dimension} (u v w : Vec3 d)
+  : u =v= v -> v =v= w -> u =v= w.
+Proof.
+  unfold vec_eq.
+  intros [Hx1 [Hy1 Hz1]] [Hx2 [Hy2 Hz2]].
+  repeat split; eapply Qeq_trans; eassumption.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Vector Addition: Abelian Group                                             *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma vec_add_comm {d : Dimension} (v w : Vec3 d)
+  : vec_add v w =v= vec_add w v.
+Proof.
+  unfold vec_eq, vec_add.
+  simpl.
+  repeat split; apply Qadd_comm.
+Qed.
+
+Lemma vec_add_assoc {d : Dimension} (u v w : Vec3 d)
+  : vec_add (vec_add u v) w =v= vec_add u (vec_add v w).
+Proof.
+  unfold vec_eq, vec_add.
+  simpl.
+  repeat split; apply Qadd_assoc.
+Qed.
+
+Lemma vec_add_zero_l {d : Dimension} (v : Vec3 d)
+  : vec_add (vec_zero d) v =v= v.
+Proof.
+  unfold vec_eq, vec_add, vec_zero.
+  simpl.
+  repeat split; apply Qadd_0_l.
+Qed.
+
+Lemma vec_add_zero_r {d : Dimension} (v : Vec3 d)
+  : vec_add v (vec_zero d) =v= v.
+Proof.
+  unfold vec_eq, vec_add, vec_zero.
+  simpl.
+  repeat split; apply Qadd_0_r.
+Qed.
+
+Lemma vec_add_opp_r {d : Dimension} (v : Vec3 d)
+  : vec_add v (vec_opp v) =v= vec_zero d.
+Proof.
+  unfold vec_eq, vec_add, vec_opp, vec_zero.
+  simpl.
+  repeat split; apply Qadd_opp_r.
+Qed.
+
+Lemma vec_add_opp_l {d : Dimension} (v : Vec3 d)
+  : vec_add (vec_opp v) v =v= vec_zero d.
+Proof.
+  unfold vec_eq, vec_add, vec_opp, vec_zero.
+  simpl.
+  repeat split; apply Qadd_opp_l.
+Qed.
+
+Lemma vec_opp_involutive {d : Dimension} (v : Vec3 d)
+  : vec_opp (vec_opp v) =v= v.
+Proof.
+  unfold vec_eq, vec_opp.
+  simpl.
+  repeat split; apply Qopp_involutive.
+Qed.
+
+Lemma vec_sub_diag {d : Dimension} (v : Vec3 d)
+  : vec_sub v v =v= vec_zero d.
+Proof.
+  unfold vec_eq, vec_sub, vec_zero.
+  simpl.
+  repeat split; apply Qsub_diag.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Scalar Multiplication Properties                                           *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma vec_scale_one {d : Dimension} (v : Vec3 d)
+  : vec_scale R1 v =v= v.
+Proof.
+  unfold vec_eq, vec_scale, Qeq, Qscale.
+  simpl.
+  repeat split; apply Rmult_1_l.
+Qed.
+
+Lemma vec_scale_zero {d : Dimension} (v : Vec3 d)
+  : vec_scale R0 v =v= vec_zero d.
+Proof.
+  unfold vec_eq, vec_scale, vec_zero, Qeq, Qscale, Qzero.
+  simpl.
+  repeat split; apply Rmult_0_l.
+Qed.
+
+Lemma vec_scale_assoc {d : Dimension} (k j : R) (v : Vec3 d)
+  : vec_scale k (vec_scale j v) =v= vec_scale (Rmult k j) v.
+Proof.
+  unfold vec_eq, vec_scale, Qeq, Qscale.
+  simpl.
+  repeat split; symmetry; apply Rmult_assoc.
+Qed.
+
+Lemma vec_scale_add_distr {d : Dimension} (k : R) (v w : Vec3 d)
+  : vec_scale k (vec_add v w) =v= vec_add (vec_scale k v) (vec_scale k w).
+Proof.
+  unfold vec_eq, vec_scale, vec_add, Qeq, Qscale, Qadd.
+  simpl.
+  repeat split; apply Rmult_plus_distr_l.
+Qed.
+
+Lemma vec_scale_opp {d : Dimension} (k : R) (v : Vec3 d)
+  : vec_scale k (vec_opp v) =v= vec_opp (vec_scale k v).
+Proof.
+  unfold vec_eq, vec_scale, vec_opp, Qeq, Qscale, Qopp.
+  simpl.
+  repeat split; apply Ropp_mult_r.
+Qed.
+
+Lemma vec_scale_neg_one {d : Dimension} (v : Vec3 d)
+  : vec_scale (Ropp R1) v =v= vec_opp v.
+Proof.
+  unfold vec_eq, vec_scale, vec_opp, Qeq, Qscale, Qopp.
+  simpl.
+  repeat split; rewrite Ropp_mult_l; rewrite Rmult_1_l; reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Dot Product                                                                *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_dot {d1 d2 : Dimension} (v : Vec3 d1) (w : Vec3 d2)
+  : Quantity (d1 + d2)%dim :=
+  Qadd (Qadd (Qmul (vx v) (vx w)) (Qmul (vy v) (vy w))) (Qmul (vz v) (vz w)).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Cross Product                                                              *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_cross {d1 d2 : Dimension} (v : Vec3 d1) (w : Vec3 d2)
+  : Vec3 (d1 + d2)%dim :=
+  mkVec3
+    (Qsub (Qmul (vy v) (vz w)) (Qmul (vz v) (vy w)))
+    (Qsub (Qmul (vz v) (vx w)) (Qmul (vx v) (vz w)))
+    (Qsub (Qmul (vx v) (vy w)) (Qmul (vy v) (vx w))).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Magnitude Squared                                                          *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_mag_sq {d : Dimension} (v : Vec3 d) : Quantity (d + d)%dim :=
+  vec_dot v v.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Dot Product Properties                                                     *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma vec_dot_comm {d1 d2 : Dimension} (v : Vec3 d1) (w : Vec3 d2)
+  : magnitude (vec_dot v w) = magnitude (vec_dot w v).
+Proof.
+  unfold vec_dot, Qadd, Qmul.
+  simpl.
+  rewrite (Rmult_comm (magnitude (vx v)) (magnitude (vx w))).
+  rewrite (Rmult_comm (magnitude (vy v)) (magnitude (vy w))).
+  rewrite (Rmult_comm (magnitude (vz v)) (magnitude (vz w))).
+  rewrite Rplus_comm.
+  rewrite (Rplus_comm (Rmult (magnitude (vx w)) (magnitude (vx v)))).
+  reflexivity.
+Qed.
+
+Lemma vec_dot_zero_l {d1 d2 : Dimension} (w : Vec3 d2)
+  : magnitude (vec_dot (vec_zero d1) w) = R0.
+Proof.
+  unfold vec_dot, vec_zero, Qadd, Qmul, Qzero.
+  simpl.
+  rewrite Rmult_0_l.
+  rewrite Rmult_0_l.
+  rewrite Rmult_0_l.
+  rewrite Rplus_0_l.
+  rewrite Rplus_0_l.
+  reflexivity.
+Qed.
+
+Lemma vec_dot_zero_r {d1 d2 : Dimension} (v : Vec3 d1)
+  : magnitude (vec_dot v (vec_zero d2)) = R0.
+Proof.
+  unfold vec_dot, vec_zero, Qadd, Qmul, Qzero.
+  simpl.
+  rewrite Rmult_0_r.
+  rewrite Rmult_0_r.
+  rewrite Rmult_0_r.
+  rewrite Rplus_0_l.
+  rewrite Rplus_0_l.
+  reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Cross Product Properties                                                   *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma vec_cross_self {d : Dimension} (v : Vec3 d)
+  : vec_cross v v =v= vec_zero (d + d)%dim.
+Proof.
+  unfold vec_eq, vec_cross, vec_zero, Qeq, Qsub, Qzero, Qmul.
+  simpl.
+  repeat split.
+  - rewrite (Rmult_comm (magnitude (vz v)) (magnitude (vy v))).
+    apply Rplus_opp_r.
+  - rewrite (Rmult_comm (magnitude (vx v)) (magnitude (vz v))).
+    apply Rplus_opp_r.
+  - rewrite (Rmult_comm (magnitude (vy v)) (magnitude (vx v))).
+    apply Rplus_opp_r.
+Qed.
+
+Lemma vec_cross_zero_l {d1 d2 : Dimension} (w : Vec3 d2)
+  : vec_cross (vec_zero d1) w =v= vec_zero (d1 + d2)%dim.
+Proof.
+  unfold vec_eq, vec_cross, vec_zero, Qeq, Qsub, Qzero, Qmul.
+  simpl.
+  repeat split; rewrite Rmult_0_l; rewrite Rmult_0_l; rewrite Ropp_0; apply Rplus_0_l.
+Qed.
+
+Lemma vec_cross_zero_r {d1 d2 : Dimension} (v : Vec3 d1)
+  : vec_cross v (vec_zero d2) =v= vec_zero (d1 + d2)%dim.
+Proof.
+  unfold vec_eq, vec_cross, vec_zero, Qeq, Qsub, Qzero, Qmul.
+  simpl.
+  repeat split; rewrite Rmult_0_r; rewrite Rmult_0_r; rewrite Ropp_0; apply Rplus_0_l.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Dot Product Bilinearity                                                    *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma vec_dot_scale_l {d1 d2 : Dimension} (k : R) (v : Vec3 d1) (w : Vec3 d2)
+  : magnitude (vec_dot (vec_scale k v) w) = Rmult k (magnitude (vec_dot v w)).
+Proof.
+  unfold vec_dot, vec_scale, Qadd, Qmul, Qscale.
+  simpl.
+  rewrite Rmult_plus_distr_l.
+  rewrite Rmult_plus_distr_l.
+  rewrite Rmult_assoc.
+  rewrite Rmult_assoc.
+  rewrite Rmult_assoc.
+  reflexivity.
+Qed.
+
+Lemma vec_dot_scale_r {d1 d2 : Dimension} (v : Vec3 d1) (k : R) (w : Vec3 d2)
+  : magnitude (vec_dot v (vec_scale k w)) = Rmult k (magnitude (vec_dot v w)).
+Proof.
+  unfold vec_dot, vec_scale, Qadd, Qmul, Qscale.
+  simpl.
+  rewrite Rmult_plus_distr_l.
+  rewrite Rmult_plus_distr_l.
+  rewrite (Rmult_comm (magnitude (vx v)) (Rmult k (magnitude (vx w)))).
+  rewrite (Rmult_comm (magnitude (vy v)) (Rmult k (magnitude (vy w)))).
+  rewrite (Rmult_comm (magnitude (vz v)) (Rmult k (magnitude (vz w)))).
+  rewrite Rmult_assoc.
+  rewrite Rmult_assoc.
+  rewrite Rmult_assoc.
+  rewrite (Rmult_comm (magnitude (vx w)) (magnitude (vx v))).
+  rewrite (Rmult_comm (magnitude (vy w)) (magnitude (vy v))).
+  rewrite (Rmult_comm (magnitude (vz w)) (magnitude (vz v))).
+  reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Magnitude                                                                  *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_mag {d : Dimension} (v : Vec3 d)
+  (H : Rle R0 (magnitude (vec_mag_sq v)))
+  : Quantity d :=
+  mkQ (Rsqrt (magnitude (vec_mag_sq v))).
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Physical Vector Witnesses                                                  *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Example work_is_force_dot_displacement
+  (F : Vec3 dim_force) (d : Vec3 dim_length)
+  : Quantity (dim_force + dim_length)%dim :=
+  vec_dot F d.
+
+Example torque_is_r_cross_F
+  (r : Vec3 dim_length) (F : Vec3 dim_force)
+  : Vec3 (dim_length + dim_force)%dim :=
+  vec_cross r F.
+
+Example momentum_from_mass_velocity
+  (m : Quantity dim_mass) (v : Vec3 dim_velocity)
+  : Vec3 (dim_mass + dim_velocity)%dim :=
+  mkVec3 (Qmul m (vx v)) (Qmul m (vy v)) (Qmul m (vz v)).
+
+Example position_vec : Vec3 dim_length :=
+  mkVec3 (meters R1) (meters R1) (meters R1).
+
+Example velocity_vec : Vec3 dim_velocity :=
+  mkVec3 (mkQ R1) (mkQ R1) (mkQ R1).
+
+Example force_vec : Vec3 dim_force :=
+  mkVec3 (mkQ R1) (mkQ R1) (mkQ R1).
+
+Example angular_momentum_is_r_cross_p
+  (r : Vec3 dim_length) (p : Vec3 dim_momentum)
+  : Vec3 (dim_length + dim_momentum)%dim :=
+  vec_cross r p.
+
+Example power_is_F_dot_v
+  (F : Vec3 dim_force) (v : Vec3 dim_velocity)
+  : Quantity (dim_force + dim_velocity)%dim :=
+  vec_dot F v.
+
+Example momentum_vec_from_qscale
+  (m : Quantity dim_mass) (v : Vec3 dim_velocity)
+  : Vec3 (dim_mass + dim_velocity)%dim :=
+  vec_qscale m v.
+
+Example kinetic_energy_from_dot
+  (p : Vec3 dim_momentum) (v : Vec3 dim_velocity)
+  : Quantity (dim_momentum + dim_velocity)%dim :=
+  vec_dot p v.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Vector Counterexamples: Type Safety                                        *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Fail Definition bad_add_position_velocity
+  (r : Vec3 dim_length) (v : Vec3 dim_velocity)
+  := vec_add r v.
+
+Fail Definition bad_add_force_momentum
+  (F : Vec3 dim_force) (p : Vec3 dim_momentum)
+  := vec_add F p.
+
+Fail Definition bad_dot_wrong_result
+  (F : Vec3 dim_force) (d : Vec3 dim_length)
+  : Quantity dim_force := vec_dot F d.
+
+Fail Definition bad_cross_wrong_result
+  (r : Vec3 dim_length) (F : Vec3 dim_force)
+  : Vec3 dim_force := vec_cross r F.
 
 End Quantities.
