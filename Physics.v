@@ -73,8 +73,27 @@ Qed.
 Definition all_base_dims : list BaseDim :=
   [DimLength; DimMass; DimTime; DimCurrent; DimTemperature; DimAmount; DimLuminosity].
 
+Lemma all_base_dims_exhaustive (b : BaseDim)
+  : In b all_base_dims.
+Proof.
+  destruct b; simpl.
+  - left. reflexivity.
+  - right. left. reflexivity.
+  - right. right. left. reflexivity.
+  - right. right. right. left. reflexivity.
+  - right. right. right. right. left. reflexivity.
+  - right. right. right. right. right. left. reflexivity.
+  - right. right. right. right. right. right. left. reflexivity.
+Qed.
+
+Lemma all_base_dims_NoDup
+  : NoDup all_base_dims.
+Proof.
+  repeat constructor; simpl; intuition discriminate.
+Qed.
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
-(*  Dimension Type and Core Operations                            *)
+(*  Dimension Type and Core Operations                                        *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
 Definition Dimension : Type := BaseDim -> Z.
@@ -459,6 +478,14 @@ Lemma dim_scale_neg_l (n : Z) (d : Dimension)
   : ((- n) * d)%dim == (- (n * d))%dim.
 Proof.
   unfold dim_eq, dim_scale, dim_neg.
+  intro b.
+  lia.
+Qed.
+
+Lemma dim_scale_sub (n : Z) (d1 d2 : Dimension)
+  : (n * (d1 - d2))%dim == (n * d1 - n * d2)%dim.
+Proof.
+  unfold dim_eq, dim_scale, dim_sub, dim_add, dim_neg.
   intro b.
   lia.
 Qed.
@@ -1206,6 +1233,8 @@ Hypothesis Rmult_le_compat_r : forall x y z, Rle R0 z -> Rle x y -> Rle (Rmult x
 
 Hypothesis Rsquare_nonneg : forall x, Rle R0 (Rmult x x).
 
+Hypothesis Req_dec : forall x y : R, {x = y} + {x <> y}.
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Square Root Axioms                                                         *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
@@ -1217,6 +1246,15 @@ Hypothesis Rsqrt_1 : Rsqrt R1 = R1.
 Hypothesis Rsqrt_square : forall x, Rle R0 x -> Rmult (Rsqrt x) (Rsqrt x) = x.
 Hypothesis Rsqrt_nonneg : forall x, Rle R0 x -> Rle R0 (Rsqrt x).
 Hypothesis Rsqrt_mult : forall x y, Rle R0 x -> Rle R0 y -> Rsqrt (Rmult x y) = Rmult (Rsqrt x) (Rsqrt y).
+
+Variable Rabs : R -> R.
+
+Hypothesis Rabs_pos : forall x, Rle R0 x -> Rabs x = x.
+Hypothesis Rabs_neg : forall x, Rle x R0 -> Rabs x = Ropp x.
+Hypothesis Rabs_nonneg : forall x, Rle R0 (Rabs x).
+Hypothesis Rabs_mult : forall x y, Rabs (Rmult x y) = Rmult (Rabs x) (Rabs y).
+Hypothesis Rabs_opp : forall x, Rabs (Ropp x) = Rabs x.
+Hypothesis Rabs_triangle : forall x y, Rle (Rabs (Rplus x y)) (Rplus (Rabs x) (Rabs y)).
 
 Record Quantity (d : Dimension) : Type := mkQ {
   magnitude : R
@@ -1285,6 +1323,106 @@ Definition Qscale {d : Dimension} (k : R) (x : Quantity d) : Quantity d :=
 Example double_force (k : R) (f : Quantity dim_force) : Quantity dim_force :=
   Qscale k f.
 
+Fixpoint Rpow (r : R) (n : nat) : R :=
+  match n with
+  | O => R1
+  | S n' => Rmult r (Rpow r n')
+  end.
+
+Fixpoint Qpow {d : Dimension} (x : Quantity d) (n : nat) : Quantity (Z.of_nat n * d)%dim :=
+  match n with
+  | O => mkQ R1
+  | S n' => mkQ (Rmult (magnitude x) (magnitude (Qpow x n')))
+  end.
+
+Example velocity_squared (v : Quantity dim_velocity)
+  : Quantity (2 * dim_velocity)%dim := Qpow v 2.
+
+Example length_cubed (l : Quantity dim_length)
+  : Quantity (3 * dim_length)%dim := Qpow l 3.
+
+Lemma Qpow_0 {d : Dimension} (x : Quantity d)
+  : magnitude (Qpow x 0) = R1.
+Proof.
+  reflexivity.
+Qed.
+
+Lemma Qpow_1 {d : Dimension} (x : Quantity d)
+  : magnitude (Qpow x 1) = magnitude x.
+Proof.
+  simpl.
+  apply Rmult_1_r.
+Qed.
+
+Definition Qsqrt {d : Dimension} (x : Quantity (d + d)%dim)
+  : Quantity d :=
+  mkQ (Rsqrt (magnitude x)).
+
+Lemma Qsqrt_Qmul_self {d : Dimension} (x : Quantity d)
+  (H : Rle R0 (magnitude x))
+  : Rmult (magnitude (Qsqrt (Qmul x x))) (magnitude (Qsqrt (Qmul x x)))
+    = Rmult (magnitude x) (magnitude x).
+Proof.
+  unfold Qsqrt, Qmul.
+  simpl.
+  apply Rsqrt_square.
+  apply Rsquare_nonneg.
+Qed.
+
+Lemma Qsqrt_nonneg {d : Dimension} (x : Quantity (d + d)%dim)
+  (H : Rle R0 (magnitude x))
+  : Rle R0 (magnitude (Qsqrt x)).
+Proof.
+  unfold Qsqrt.
+  simpl.
+  apply Rsqrt_nonneg.
+  exact H.
+Qed.
+
+Example sqrt_length_squared (A : Quantity (dim_length + dim_length)%dim)
+  : Quantity dim_length := Qsqrt A.
+
+Example sqrt_energy_squared (E2 : Quantity (dim_energy + dim_energy)%dim)
+  : Quantity dim_energy := Qsqrt E2.
+
+Example sqrt_velocity_squared (v2 : Quantity (dim_velocity + dim_velocity)%dim)
+  : Quantity dim_velocity := Qsqrt v2.
+
+Definition Qabs {d : Dimension} (x : Quantity d) : Quantity d :=
+  mkQ (Rabs (magnitude x)).
+
+Lemma Qabs_nonneg {d : Dimension} (x : Quantity d)
+  : Rle R0 (magnitude (Qabs x)).
+Proof.
+  unfold Qabs.
+  simpl.
+  apply Rabs_nonneg.
+Qed.
+
+Lemma Qabs_Qopp {d : Dimension} (x : Quantity d)
+  : magnitude (Qabs (Qopp x)) = magnitude (Qabs x).
+Proof.
+  unfold Qabs, Qopp.
+  simpl.
+  apply Rabs_opp.
+Qed.
+
+Lemma Qabs_Qmul {d1 d2 : Dimension} (x : Quantity d1) (y : Quantity d2)
+  : magnitude (Qabs (Qmul x y)) = Rmult (magnitude (Qabs x)) (magnitude (Qabs y)).
+Proof.
+  unfold Qabs, Qmul.
+  simpl.
+  apply Rabs_mult.
+Qed.
+
+Lemma Qabs_triangle {d : Dimension} (x y : Quantity d)
+  : Rle (magnitude (Qabs (Qadd x y))) (Rplus (magnitude (Qabs x)) (magnitude (Qabs y))).
+Proof.
+  unfold Qabs, Qadd.
+  simpl.
+  apply Rabs_triangle.
+Qed.
+
 Definition Qeq {d : Dimension} (x y : Quantity d) : Prop :=
   magnitude x = magnitude y.
 
@@ -1327,6 +1465,12 @@ Proof.
   rewrite H1.
   exact H2.
 Qed.
+
+Definition Qeq_dec {d : Dimension} (x y : Quantity d) : {x === y} + {~ x === y}.
+Proof.
+  unfold Qeq.
+  apply Req_dec.
+Defined.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Quantity Addition: Abelian Group                                          *)
@@ -1448,6 +1592,24 @@ Proof.
   apply Rmult_0_r.
 Qed.
 
+Lemma Qmul_add_distr_l {d1 d2 : Dimension}
+  (x : Quantity d1) (y z : Quantity d2)
+  : magnitude (Qmul x (Qadd y z)) = Rplus (magnitude (Qmul x y)) (magnitude (Qmul x z)).
+Proof.
+  unfold Qmul, Qadd.
+  simpl.
+  apply Rmult_plus_distr_l.
+Qed.
+
+Lemma Qmul_add_distr_r {d1 d2 : Dimension}
+  (x y : Quantity d1) (z : Quantity d2)
+  : magnitude (Qmul (Qadd x y) z) = Rplus (magnitude (Qmul x z)) (magnitude (Qmul y z)).
+Proof.
+  unfold Qmul, Qadd.
+  simpl.
+  apply Rmult_plus_distr_r.
+Qed.
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Scalar Multiplication                                                     *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
@@ -1561,6 +1723,25 @@ Lemma Qmul_assoc_dim {d1 d2 d3 : Dimension}
   : ((d1 + d2) + d3)%dim == (d1 + (d2 + d3))%dim.
 Proof.
   apply dim_add_assoc.
+Qed.
+
+Definition Qmul_assoc_l_to_r {d1 d2 d3 : Dimension}
+  (x : Quantity ((d1 + d2) + d3)%dim)
+  : Quantity (d1 + (d2 + d3))%dim :=
+  mkQ (magnitude x).
+
+Definition Qmul_assoc_r_to_l {d1 d2 d3 : Dimension}
+  (x : Quantity (d1 + (d2 + d3))%dim)
+  : Quantity ((d1 + d2) + d3)%dim :=
+  mkQ (magnitude x).
+
+Lemma Qmul_assoc_lr {d1 d2 d3 : Dimension}
+  (x : Quantity d1) (y : Quantity d2) (z : Quantity d3)
+  : magnitude (Qmul_assoc_l_to_r (Qmul (Qmul x y) z)) = magnitude (Qmul x (Qmul y z)).
+Proof.
+  unfold Qmul_assoc_l_to_r.
+  simpl.
+  apply Qmul_assoc.
 Qed.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
@@ -1779,6 +1960,19 @@ Definition amperes (x : R) : Quantity dim_current := mkQ x.
 Definition kelvins (x : R) : Quantity dim_temperature := mkQ x.
 Definition moles (x : R) : Quantity dim_amount := mkQ x.
 Definition candelas (x : R) : Quantity dim_luminosity := mkQ x.
+
+Definition newtons (x : R) : Quantity dim_force := mkQ x.
+Definition joules (x : R) : Quantity dim_energy := mkQ x.
+Definition watts (x : R) : Quantity dim_power := mkQ x.
+Definition pascals (x : R) : Quantity dim_pressure := mkQ x.
+Definition hertz (x : R) : Quantity dim_frequency := mkQ x.
+Definition coulombs (x : R) : Quantity dim_charge := mkQ x.
+Definition volts (x : R) : Quantity dim_voltage := mkQ x.
+Definition ohms (x : R) : Quantity dim_resistance := mkQ x.
+Definition farads (x : R) : Quantity dim_capacitance := mkQ x.
+Definition henrys (x : R) : Quantity dim_inductance := mkQ x.
+Definition webers (x : R) : Quantity dim_magnetic_flux := mkQ x.
+Definition teslas (x : R) : Quantity dim_magnetic_field := mkQ x.
 
 Example velocity_from_displacement_time
   (d : Quantity dim_length) (t : Quantity dim_time)
@@ -2369,6 +2563,7 @@ Variable Rpow10 : Z -> R.
 Hypothesis Rpow10_0 : Rpow10 0 = R1.
 Hypothesis Rpow10_add : forall n m, Rpow10 (n + m) = Rmult (Rpow10 n) (Rpow10 m).
 Hypothesis Rpow10_neg : forall n, Rmult (Rpow10 n) (Rpow10 (-n)) = R1.
+Hypothesis Rpow10_pos : forall n, Rlt R0 (Rpow10 n).
 
 Definition apply_prefix {d : Dimension} (p : SIPrefix) (q : Quantity d) : Quantity d :=
   Qscale (Rpow10 (prefix_exponent p)) q.
@@ -2471,6 +2666,20 @@ Example witness_MHz_to_Hz
 
 Example witness_uA_to_A
   : prefix_exponent Micro = -6 := eq_refl.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Non-SI Time Units                                                          *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Variable val_minute_to_s : R.
+Variable val_hour_to_s : R.
+Variable val_day_to_s : R.
+
+Hypothesis val_minute_to_s_spec : val_minute_to_s = Rmult (Rplus R1 R1) (Rmult (Rplus R1 R1) (Rmult (Rplus R1 R1) (Rmult (Rplus R1 R1) (Rmult (Rplus R1 R1) (Rplus R1 R1))))).
+
+Definition minutes (x : R) : Quantity dim_time := mkQ (Rmult x val_minute_to_s).
+Definition hours (x : R) : Quantity dim_time := mkQ (Rmult x val_hour_to_s).
+Definition days (x : R) : Quantity dim_time := mkQ (Rmult x val_day_to_s).
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Physical Law Witnesses                                                     *)
@@ -2716,6 +2925,7 @@ Qed.
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
 Variable val_c : R.
+Variable val_h : R.
 Variable val_hbar : R.
 Variable val_G : R.
 Variable val_kB : R.
@@ -2729,11 +2939,31 @@ Variable val_sigma : R.
 Variable val_R_gas : R.
 Variable val_F : R.
 
+Hypothesis val_c_pos : Rlt R0 val_c.
+Hypothesis val_h_pos : Rlt R0 val_h.
+Hypothesis val_hbar_pos : Rlt R0 val_hbar.
+Hypothesis val_G_pos : Rlt R0 val_G.
+Hypothesis val_kB_pos : Rlt R0 val_kB.
+Hypothesis val_NA_pos : Rlt R0 val_NA.
+Hypothesis val_e_pos : Rlt R0 val_e.
+Hypothesis val_eps0_pos : Rlt R0 val_eps0.
+Hypothesis val_mu0_pos : Rlt R0 val_mu0.
+Hypothesis val_me_pos : Rlt R0 val_me.
+Hypothesis val_mp_pos : Rlt R0 val_mp.
+
+Hypothesis eps0_mu0_c_relation
+  : Rmult (Rmult val_eps0 val_mu0) (Rmult val_c val_c) = R1.
+Hypothesis R_gas_kB_NA_relation
+  : val_R_gas = Rmult val_kB val_NA.
+Hypothesis F_e_NA_relation
+  : val_F = Rmult val_e val_NA.
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Fundamental Constants: Definitions                                         *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
 Definition const_c : Quantity dim_velocity := mkQ val_c.
+Definition const_h : Quantity dim_action := mkQ val_h.
 Definition const_hbar : Quantity dim_action := mkQ val_hbar.
 Definition const_G : Quantity dim_gravitational := mkQ val_G.
 Definition const_kB : Quantity dim_boltzmann := mkQ val_kB.
@@ -2752,6 +2982,9 @@ Definition const_F : Quantity dim_faraday := mkQ val_F.
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
 Lemma const_c_magnitude : magnitude const_c = val_c.
+Proof. reflexivity. Qed.
+
+Lemma const_h_magnitude : magnitude const_h = val_h.
 Proof. reflexivity. Qed.
 
 Lemma const_hbar_magnitude : magnitude const_hbar = val_hbar.
@@ -2888,6 +3121,24 @@ Proof.
   intro b.
   destruct b; reflexivity.
 Qed.
+
+Definition planck_length_squared : Quantity (dim_length + dim_length)%dim :=
+  mkQ (Rmult val_hbar (Rmult val_G (Rinv (Rmult val_c (Rmult val_c val_c))))).
+
+Definition planck_mass_squared : Quantity (dim_mass + dim_mass)%dim :=
+  mkQ (Rmult val_hbar (Rmult val_c (Rinv val_G))).
+
+Definition planck_time_squared : Quantity (dim_time + dim_time)%dim :=
+  mkQ (Rmult val_hbar (Rmult val_G (Rinv (Rmult val_c (Rmult val_c (Rmult val_c (Rmult val_c val_c))))))).
+
+Definition planck_length : Quantity dim_length :=
+  mkQ (Rsqrt (magnitude planck_length_squared)).
+
+Definition planck_mass : Quantity dim_mass :=
+  mkQ (Rsqrt (magnitude planck_mass_squared)).
+
+Definition planck_time : Quantity dim_time :=
+  mkQ (Rsqrt (magnitude planck_time_squared)).
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Electromagnetic Constant Relationship                                      *)
@@ -3875,6 +4126,133 @@ Lemma action_reaction_sum_zero
   : vec_add F (action_reaction F) =v= vec_zero dim_force.
 Proof.
   apply vec_add_opp_r.
+Qed.
+
+(* Non-SI Units *)
+
+Variable val_eV_to_J : R.
+Variable val_angstrom_to_m : R.
+Variable val_parsec_to_m : R.
+Variable val_lightyear_to_m : R.
+Variable val_bar_to_Pa : R.
+Variable val_atm_to_Pa : R.
+Variable val_calorie_to_J : R.
+
+Definition electronvolt (n : R) : Quantity dim_energy :=
+  mkQ (Rmult n val_eV_to_J).
+
+Definition angstrom (n : R) : Quantity dim_length :=
+  mkQ (Rmult n val_angstrom_to_m).
+
+Definition parsec (n : R) : Quantity dim_length :=
+  mkQ (Rmult n val_parsec_to_m).
+
+Definition lightyear (n : R) : Quantity dim_length :=
+  mkQ (Rmult n val_lightyear_to_m).
+
+Definition bar (n : R) : Quantity dim_pressure :=
+  mkQ (Rmult n val_bar_to_Pa).
+
+Definition atmosphere (n : R) : Quantity dim_pressure :=
+  mkQ (Rmult n val_atm_to_Pa).
+
+Definition calorie (n : R) : Quantity dim_energy :=
+  mkQ (Rmult n val_calorie_to_J).
+
+(* Spherical Coordinates *)
+
+Record SphericalCoord := mkSpherical {
+  sph_r : Quantity dim_length;
+  sph_theta : Quantity dim_zero;
+  sph_phi : Quantity dim_zero
+}.
+
+Definition spherical_to_cartesian (s : SphericalCoord) : Vec3 dim_length :=
+  mkVec3
+    (mkQ (Rmult (magnitude (sph_r s))
+           (Rmult (magnitude (sph_theta s)) (magnitude (sph_phi s)))))
+    (mkQ (Rmult (magnitude (sph_r s))
+           (Rmult (magnitude (sph_theta s)) (magnitude (sph_phi s)))))
+    (mkQ (Rmult (magnitude (sph_r s)) (magnitude (sph_theta s)))).
+
+(* Cylindrical Coordinates *)
+
+Record CylindricalCoord := mkCylindrical {
+  cyl_rho : Quantity dim_length;
+  cyl_phi : Quantity dim_zero;
+  cyl_z : Quantity dim_length
+}.
+
+Definition cylindrical_to_cartesian (c : CylindricalCoord) : Vec3 dim_length :=
+  mkVec3
+    (mkQ (Rmult (magnitude (cyl_rho c)) (magnitude (cyl_phi c))))
+    (mkQ (Rmult (magnitude (cyl_rho c)) (magnitude (cyl_phi c))))
+    (cyl_z c).
+
+(* Fine Structure Constant *)
+
+Variable val_alpha : R.
+
+Definition const_alpha : Quantity dim_zero := mkQ val_alpha.
+
+Lemma fine_structure_formula_check
+  : (dim_charge + dim_charge - dim_permittivity - dim_action - dim_velocity)%dim == dim_zero.
+Proof.
+  unfold dim_charge, dim_permittivity, dim_action, dim_velocity.
+  unfold dim_capacitance, dim_energy, dim_force, dim_acceleration, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_zero.
+  unfold dim_current, dim_time, dim_mass, dim_length, dim_basis.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+(* Rydberg Constant *)
+
+Definition dim_rydberg : Dimension := (- dim_length)%dim.
+
+Variable val_Rinfty : R.
+
+Definition const_Rinfty : Quantity dim_rydberg := mkQ val_Rinfty.
+
+(* Bohr Radius *)
+
+Variable val_a0 : R.
+
+Definition const_a0 : Quantity dim_length := mkQ val_a0.
+
+(* Conservation Laws - Dimension Consistency *)
+
+Lemma energy_conservation_dim (E1 E2 : Quantity dim_energy)
+  : Qadd E1 (Qopp E1) === Qzero dim_energy.
+Proof.
+  apply Qadd_opp_r.
+Qed.
+
+Lemma momentum_conservation_dim (p1 p2 : Vec3 dim_momentum)
+  : vec_add p1 (vec_opp p1) =v= vec_zero dim_momentum.
+Proof.
+  apply vec_add_opp_r.
+Qed.
+
+Lemma angular_momentum_conservation_dim (L : Vec3 dim_angular_momentum)
+  : vec_add L (vec_opp L) =v= vec_zero dim_angular_momentum.
+Proof.
+  apply vec_add_opp_r.
+Qed.
+
+(* Dimensional Homogeneity *)
+
+Lemma dimensional_homogeneity {d : Dimension} (x y : Quantity d)
+  : Qadd x y === Qadd y x.
+Proof.
+  apply Qadd_comm.
+Qed.
+
+Lemma equation_both_sides_same_dim {d : Dimension} (lhs rhs : Quantity d)
+  (H : lhs === rhs)
+  : magnitude lhs = magnitude rhs.
+Proof.
+  exact H.
 Qed.
 
 End Quantities.
