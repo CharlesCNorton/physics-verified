@@ -3302,6 +3302,28 @@ Definition vec_cross {d1 d2 : Dimension} (v : Vec3 d1) (w : Vec3 d2)
 Definition vec_mag_sq {d : Dimension} (v : Vec3 d) : Quantity (d + d)%dim :=
   vec_dot v v.
 
+Lemma Rle_0_plus_nonneg (x y : R) : Rle R0 x -> Rle R0 y -> Rle R0 (Rplus x y).
+Proof.
+  intros Hx Hy.
+  apply Rle_trans with (y := Rplus R0 y).
+  - rewrite Rplus_0_l.
+    exact Hy.
+  - apply Rplus_le_compat.
+    exact Hx.
+Qed.
+
+Lemma vec_mag_sq_nonneg {d : Dimension} (v : Vec3 d)
+  : Rle R0 (magnitude (vec_mag_sq v)).
+Proof.
+  unfold vec_mag_sq, vec_dot, Qadd, Qmul.
+  simpl.
+  apply Rle_0_plus_nonneg.
+  apply Rle_0_plus_nonneg.
+  apply Rsquare_nonneg.
+  apply Rsquare_nonneg.
+  apply Rsquare_nonneg.
+Qed.
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Dot Product Properties                                                     *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
