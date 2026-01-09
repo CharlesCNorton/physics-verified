@@ -726,6 +726,8 @@ Definition dim_pressure : Dimension := (dim_force - dim_area)%dim.
 Definition dim_density : Dimension := (dim_mass - dim_volume)%dim.
 Definition dim_torque : Dimension := (dim_force + dim_length)%dim.
 Definition dim_angular_momentum : Dimension := (dim_momentum + dim_length)%dim.
+Definition dim_moment_of_inertia : Dimension := (dim_mass + dim_area)%dim.
+Definition dim_angular_acceleration : Dimension := (- dim_time - dim_time)%dim.
 
 Example dim_force_mass_exp : dim_force DimMass = 1 := eq_refl.
 Example dim_force_length_exp : dim_force DimLength = 1 := eq_refl.
@@ -735,6 +737,9 @@ Example dim_energy_length_exp : dim_energy DimLength = 2 := eq_refl.
 Example dim_energy_time_exp : dim_energy DimTime = -2 := eq_refl.
 Example dim_density_mass_exp : dim_density DimMass = 1 := eq_refl.
 Example dim_density_length_exp : dim_density DimLength = -3 := eq_refl.
+Example dim_moment_of_inertia_mass_exp : dim_moment_of_inertia DimMass = 1 := eq_refl.
+Example dim_moment_of_inertia_length_exp : dim_moment_of_inertia DimLength = 2 := eq_refl.
+Example dim_angular_acceleration_time_exp : dim_angular_acceleration DimTime = -2 := eq_refl.
 
 Lemma dim_velocity_eq
   : dim_velocity == (dim_length + (- dim_time))%dim.
@@ -2412,6 +2417,33 @@ Proof.
   apply Rpow10_neg.
 Qed.
 
+Lemma prefix_cancel {d : Dimension} (p1 p2 : SIPrefix) (q : Quantity d)
+  (Hcancel : prefix_exponent p1 + prefix_exponent p2 = 0)
+  : apply_prefix p1 (apply_prefix p2 q) === q.
+Proof.
+  unfold apply_prefix, Qeq, Qscale.
+  simpl.
+  rewrite <- Rmult_assoc.
+  rewrite <- Rpow10_add.
+  rewrite Hcancel.
+  rewrite Rpow10_0.
+  apply Rmult_1_l.
+Qed.
+
+Example kilo_milli_cancel_quantity {d : Dimension} (q : Quantity d)
+  : apply_prefix Kilo (apply_prefix Milli q) === q.
+Proof.
+  apply prefix_cancel.
+  reflexivity.
+Qed.
+
+Example mega_micro_cancel_quantity {d : Dimension} (q : Quantity d)
+  : apply_prefix Mega (apply_prefix Micro q) === q.
+Proof.
+  apply prefix_cancel.
+  reflexivity.
+Qed.
+
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Common Conversion Witnesses                                                *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
@@ -3049,6 +3081,14 @@ Definition vec_zero (d : Dimension) : Vec3 d :=
   mkVec3 (Qzero d) (Qzero d) (Qzero d).
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Unit Vectors                                                               *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Definition vec_e_x : Vec3 dim_zero := mkVec3 Qone (Qzero dim_zero) (Qzero dim_zero).
+Definition vec_e_y : Vec3 dim_zero := mkVec3 (Qzero dim_zero) Qone (Qzero dim_zero).
+Definition vec_e_z : Vec3 dim_zero := mkVec3 (Qzero dim_zero) (Qzero dim_zero) Qone.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Vector Addition                                                            *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
@@ -3337,6 +3377,54 @@ Proof.
   unfold vec_eq, vec_cross, vec_zero, Qeq, Qsub, Qzero, Qmul.
   simpl.
   repeat split; rewrite Rmult_0_r; rewrite Rmult_0_r; rewrite Ropp_0; apply Rplus_0_l.
+Qed.
+
+Lemma vec_cross_anticomm {d : Dimension} (v w : Vec3 d)
+  : vec_cross v w =v= vec_opp (vec_cross w v).
+Proof.
+  unfold vec_eq, vec_cross, vec_opp, Qeq, Qsub, Qopp, Qmul.
+  simpl.
+  repeat split.
+  - rewrite Ropp_plus.
+    rewrite Ropp_involutive.
+    rewrite (Rmult_comm (magnitude (vz w)) (magnitude (vy v))).
+    rewrite (Rmult_comm (magnitude (vy w)) (magnitude (vz v))).
+    apply Rplus_comm.
+  - rewrite Ropp_plus.
+    rewrite Ropp_involutive.
+    rewrite (Rmult_comm (magnitude (vx w)) (magnitude (vz v))).
+    rewrite (Rmult_comm (magnitude (vz w)) (magnitude (vx v))).
+    apply Rplus_comm.
+  - rewrite Ropp_plus.
+    rewrite Ropp_involutive.
+    rewrite (Rmult_comm (magnitude (vy w)) (magnitude (vx v))).
+    rewrite (Rmult_comm (magnitude (vx w)) (magnitude (vy v))).
+    apply Rplus_comm.
+Qed.
+
+Lemma vec_cross_anticomm_mag {d1 d2 : Dimension} (v : Vec3 d1) (w : Vec3 d2)
+  : magnitude (vx (vec_cross v w)) = Ropp (magnitude (vx (vec_cross w v))) /\
+    magnitude (vy (vec_cross v w)) = Ropp (magnitude (vy (vec_cross w v))) /\
+    magnitude (vz (vec_cross v w)) = Ropp (magnitude (vz (vec_cross w v))).
+Proof.
+  unfold vec_cross, Qsub, Qmul.
+  simpl.
+  repeat split.
+  - rewrite Ropp_plus.
+    rewrite Ropp_involutive.
+    rewrite (Rmult_comm (magnitude (vz w)) (magnitude (vy v))).
+    rewrite (Rmult_comm (magnitude (vy w)) (magnitude (vz v))).
+    apply Rplus_comm.
+  - rewrite Ropp_plus.
+    rewrite Ropp_involutive.
+    rewrite (Rmult_comm (magnitude (vx w)) (magnitude (vz v))).
+    rewrite (Rmult_comm (magnitude (vz w)) (magnitude (vx v))).
+    apply Rplus_comm.
+  - rewrite Ropp_plus.
+    rewrite Ropp_involutive.
+    rewrite (Rmult_comm (magnitude (vy w)) (magnitude (vx v))).
+    rewrite (Rmult_comm (magnitude (vx w)) (magnitude (vy v))).
+    apply Rplus_comm.
 Qed.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
