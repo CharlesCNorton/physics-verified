@@ -6,9 +6,9 @@
 (*     and dynamics. Compile-time dimensional homogeneity via dependent       *)
 (*     types. Parametric over constructive or classical reals.                *)
 (*                                                                            *)
-(*     "When you can measure what you are speaking about, and express it      *)
-(*     in numbers, you know something about it."                              *)
-(*     - William Thomson, Lord Kelvin, 1883                                   *)
+(*     'When you can measure what you are speaking about, and express it      *)
+(*     in numbers, you know something about it.'                              *)
+(*     -- William Thomson, Lord Kelvin, 1883                                  *)
 (*                                                                            *)
 (*     Author: Charles C. Norton                                              *)
 (*     Date: January 8, 2026                                                  *)
@@ -642,6 +642,39 @@ Lemma dim_amount_neq_luminosity : ~ (dim_amount == dim_luminosity).
 Proof. apply dim_basis_independent. discriminate. Qed.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Basis Decomposition                                                        *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma dim_decompose (d : Dimension)
+  : d == (d DimLength * dim_length + d DimMass * dim_mass + d DimTime * dim_time +
+          d DimCurrent * dim_current + d DimTemperature * dim_temperature +
+          d DimAmount * dim_amount + d DimLuminosity * dim_luminosity)%dim.
+Proof.
+  unfold dim_eq, dim_add, dim_scale.
+  unfold dim_length, dim_mass, dim_time, dim_current, dim_temperature, dim_amount, dim_luminosity, dim_basis.
+  intro b.
+  destruct b; simpl; lia.
+Qed.
+
+Lemma dim_unique (d1 d2 : Dimension)
+  : (forall b, d1 b = d2 b) <-> d1 == d2.
+Proof.
+  unfold dim_eq.
+  split; auto.
+Qed.
+
+Lemma dim_basis_span (d : Dimension)
+  : exists l m t i th n lu,
+    d == (l * dim_length + m * dim_mass + t * dim_time +
+          i * dim_current + th * dim_temperature +
+          n * dim_amount + lu * dim_luminosity)%dim.
+Proof.
+  exists (d DimLength), (d DimMass), (d DimTime), (d DimCurrent),
+         (d DimTemperature), (d DimAmount), (d DimLuminosity).
+  apply dim_decompose.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Derived Dimensions - Geometry                                *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
@@ -1139,10 +1172,10 @@ Hypothesis Ropp_mult_r : forall x y, Rmult x (Ropp y) = Ropp (Rmult x y).
 Hypothesis Ropp_plus : forall x y, Ropp (Rplus x y) = Rplus (Ropp x) (Ropp y).
 
 Hypothesis Rinv_1 : Rinv R1 = R1.
-Hypothesis Rinv_involutive : forall x, Rinv (Rinv x) = x.
-Hypothesis Rinv_mult : forall x y, Rinv (Rmult x y) = Rmult (Rinv x) (Rinv y).
-Hypothesis Rmult_Rinv_r : forall x, Rmult x (Rinv x) = R1.
-Hypothesis Rmult_Rinv_l : forall x, Rmult (Rinv x) x = R1.
+Hypothesis Rinv_involutive : forall x, x <> R0 -> Rinv (Rinv x) = x.
+Hypothesis Rinv_mult : forall x y, x <> R0 -> y <> R0 -> Rinv (Rmult x y) = Rmult (Rinv x) (Rinv y).
+Hypothesis Rmult_Rinv_r : forall x, x <> R0 -> Rmult x (Rinv x) = R1.
+Hypothesis Rmult_Rinv_l : forall x, x <> R0 -> Rmult (Rinv x) x = R1.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  Ordering Axioms                                                            *)
@@ -1520,36 +1553,58 @@ Qed.
 (*  Quantity Inverse Properties                                               *)
 (* ─────────────────────────────────────────────────────────────────────────── *)
 
+Lemma Rinv_neq_0 (x : R) (Hx : x <> R0) : Rinv x <> R0.
+Proof.
+  intro H.
+  assert (Rmult x (Rinv x) = R1) as HR by (apply Rmult_Rinv_r; assumption).
+  rewrite H in HR.
+  rewrite Rmult_0_r in HR.
+  assert (R0 <> R1) as Hne.
+  - intro Heq.
+    apply (Rlt_irrefl R0).
+    rewrite Heq at 2.
+    exact Rlt_0_1.
+  - apply Hne.
+    exact HR.
+Qed.
+
 Lemma Qinv_Qinv {d : Dimension} (x : Quantity d)
+  (Hx : magnitude x <> R0)
   : magnitude (Qinv (Qinv x)) = magnitude x.
 Proof.
   unfold Qinv.
   simpl.
   apply Rinv_involutive.
+  exact Hx.
 Qed.
 
 Lemma Qinv_Qmul {d1 d2 : Dimension} (x : Quantity d1) (y : Quantity d2)
+  (Hx : magnitude x <> R0) (Hy : magnitude y <> R0)
   : magnitude (Qinv (Qmul x y)) = magnitude (Qmul (Qinv x) (Qinv y)).
 Proof.
   unfold Qinv, Qmul.
   simpl.
-  apply Rinv_mult.
+  apply Rinv_mult; assumption.
 Qed.
 
 Lemma Qmul_Qinv_r {d : Dimension} (x : Quantity d)
+  (Hx : magnitude x <> R0)
   : magnitude (Qmul x (Qinv x)) = R1.
 Proof.
   unfold Qmul, Qinv.
   simpl.
   apply Rmult_Rinv_r.
+  assumption.
 Qed.
 
 Lemma Qmul_Qinv_l {d : Dimension} (x : Quantity d)
+  (Hx : magnitude x <> R0)
   : magnitude (Qmul (Qinv x) x) = R1.
 Proof.
   unfold Qmul, Qinv.
   simpl.
   apply Rmult_Rinv_l.
+  assumption.
 Qed.
 
 Lemma Qinv_Qone : magnitude (Qinv Qone) = R1.
@@ -1572,11 +1627,13 @@ Proof.
 Qed.
 
 Lemma Qdiv_self {d : Dimension} (x : Quantity d)
+  (Hx : magnitude x <> R0)
   : magnitude (Qdiv x x) = R1.
 Proof.
   unfold Qdiv.
   simpl.
   apply Rmult_Rinv_r.
+  exact Hx.
 Qed.
 
 Lemma Qdiv_1_r {d : Dimension} (x : Quantity d)
@@ -1676,6 +1733,29 @@ Proof.
   unfold Qtransport, Qscale, Qeq.
   simpl.
   reflexivity.
+Qed.
+
+(* ─────────────────────────────────────────────────────────────────────────── *)
+(*  Dimension Cancellation for Multiplication by Inverse                       *)
+(* ─────────────────────────────────────────────────────────────────────────── *)
+
+Lemma dim_mul_inv_zero (d : Dimension) : (d + (- d))%dim == dim_zero.
+Proof.
+  apply dim_add_neg_r.
+Qed.
+
+Definition Qmul_Qinv_dimless {d : Dimension} (x : Quantity d)
+  : Quantity dim_zero :=
+  Qtransport (dim_mul_inv_zero d) (Qmul x (Qinv x)).
+
+Lemma Qmul_Qinv_dimless_eq_one {d : Dimension} (x : Quantity d)
+  (Hx : magnitude x <> R0)
+  : Qmul_Qinv_dimless x === Qone.
+Proof.
+  unfold Qeq, Qmul_Qinv_dimless, Qtransport, Qone.
+  simpl.
+  apply Qmul_Qinv_r.
+  exact Hx.
 Qed.
 
 Definition meters (x : R) : Quantity dim_length := mkQ x.
@@ -1824,26 +1904,16 @@ Definition unit_kelvin : Quantity dim_temperature := mkQ R1.
 Definition unit_mole : Quantity dim_amount := mkQ R1.
 Definition unit_candela : Quantity dim_luminosity := mkQ R1.
 
-Lemma unit_meter_magnitude : magnitude unit_meter = R1.
+Lemma unit_magnitude {d : Dimension} : magnitude (mkQ R1 : Quantity d) = R1.
 Proof. reflexivity. Qed.
 
-Lemma unit_kilogram_magnitude : magnitude unit_kilogram = R1.
-Proof. reflexivity. Qed.
-
-Lemma unit_second_magnitude : magnitude unit_second = R1.
-Proof. reflexivity. Qed.
-
-Lemma unit_ampere_magnitude : magnitude unit_ampere = R1.
-Proof. reflexivity. Qed.
-
-Lemma unit_kelvin_magnitude : magnitude unit_kelvin = R1.
-Proof. reflexivity. Qed.
-
-Lemma unit_mole_magnitude : magnitude unit_mole = R1.
-Proof. reflexivity. Qed.
-
-Lemma unit_candela_magnitude : magnitude unit_candela = R1.
-Proof. reflexivity. Qed.
+Definition unit_meter_magnitude : magnitude unit_meter = R1 := unit_magnitude.
+Definition unit_kilogram_magnitude : magnitude unit_kilogram = R1 := unit_magnitude.
+Definition unit_second_magnitude : magnitude unit_second = R1 := unit_magnitude.
+Definition unit_ampere_magnitude : magnitude unit_ampere = R1 := unit_magnitude.
+Definition unit_kelvin_magnitude : magnitude unit_kelvin = R1 := unit_magnitude.
+Definition unit_mole_magnitude : magnitude unit_mole = R1 := unit_magnitude.
+Definition unit_candela_magnitude : magnitude unit_candela = R1 := unit_magnitude.
 
 (* ─────────────────────────────────────────────────────────────────────────── *)
 (*  SI Derived Units                                                           *)
