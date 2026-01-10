@@ -17,14 +17,11 @@
 
 (* TODO:                                                                      *)
 (*                                                                            *)
-(* - Wrap Dimension in opaque record via module signature for nominal typing. *)
-(*                                                                            *)
-(* - Add physics witnesses (Lorentz, Maxwell, Navier-Stokes, Schrodinger,     *)
-(*   Wien/Planck) in Quantities.v once real-valued magnitudes are available.  *)
-(*                                                                            *)
-(* - Build dim_zmodule tactic leveraging Z-module structure for automation.   *)
-(*                                                                            *)
+(* - Add docstrings to definitions and lemmas.                                *)
+(* - Verify extraction to OCaml works correctly.                              *)
 (* - Add MathComp wrapper module for ssreflect integration.                   *)
+(* - Refactor into module structure for namespace hygiene.                    *)
+(* - Wrap Dimension in opaque module signature for nominal typing (do last).  *)
 
 Require Import ZArith.
 Require Import Lia.
@@ -814,6 +811,88 @@ Proof.
     + unfold dim_eq, dim_add, dim_scale.
       intro b.
       lia.
+Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          INTEGER EXPONENTIATION                             *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Definition dim_pow_Z (d : Dimension) (n : Z) : Dimension :=
+  dim_scale n d.
+
+Notation "d ^Z n" := (dim_pow_Z d n) (at level 30, right associativity) : dim_scope.
+
+Lemma dim_pow_Z_0 (d : Dimension)
+  : (d ^Z 0) == dim_zero.
+Proof.
+  apply dim_scale_0_l.
+Qed.
+
+Lemma dim_pow_Z_1 (d : Dimension)
+  : (d ^Z 1) == d.
+Proof.
+  apply dim_scale_1_l.
+Qed.
+
+Lemma dim_pow_Z_neg1 (d : Dimension)
+  : (d ^Z (-1)) == (- d).
+Proof.
+  apply dim_scale_neg1.
+Qed.
+
+Lemma dim_pow_Z_neg (d : Dimension) (n : Z)
+  : (d ^Z (-n)) == (- (d ^Z n)).
+Proof.
+  unfold dim_pow_Z.
+  apply dim_scale_neg_l.
+Qed.
+
+Lemma dim_pow_Z_add (d : Dimension) (m n : Z)
+  : (d ^Z (m + n)) == ((d ^Z m) + (d ^Z n)).
+Proof.
+  unfold dim_pow_Z.
+  apply dim_scale_plus_distr.
+Qed.
+
+Lemma dim_pow_Z_sub (d : Dimension) (m n : Z)
+  : (d ^Z (m - n)) == ((d ^Z m) - (d ^Z n)).
+Proof.
+  unfold dim_pow_Z, dim_sub.
+  apply dim_eq_trans with (d2 := dim_scale m d + dim_scale (-n) d).
+  - apply dim_scale_plus_distr.
+  - apply dim_add_compat_r.
+    apply dim_scale_neg_l.
+Qed.
+
+Lemma dim_pow_Z_mul (d : Dimension) (m n : Z)
+  : (d ^Z (m * n)) == ((d ^Z m) ^Z n).
+Proof.
+  unfold dim_pow_Z, dim_scale, dim_eq.
+  intro b.
+  lia.
+Qed.
+
+Lemma dim_pow_Z_of_nat (d : Dimension) (n : nat)
+  : (d ^Z (Z.of_nat n)) == (d ^ n).
+Proof.
+  apply dim_eq_sym.
+  apply dim_pow_scale.
+Qed.
+
+Lemma dim_pow_Z_compat (d1 d2 : Dimension) (n : Z)
+  : d1 == d2 -> (d1 ^Z n) == (d2 ^Z n).
+Proof.
+  unfold dim_pow_Z.
+  apply dim_scale_compat.
+Qed.
+
+#[global]
+Instance dim_pow_Z_Proper : Proper (dim_eq ==> eq ==> dim_eq) dim_pow_Z.
+Proof.
+  intros d1 d2 Hd n1 n2 Hn.
+  rewrite Hn.
+  apply dim_pow_Z_compat.
+  exact Hd.
 Qed.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -2334,7 +2413,7 @@ Definition dim_eq_decidable (d1 d2 : Dimension) : {d1 == d2} + {~ d1 == d2} :=
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 
 Ltac unfold_dim_base :=
-  unfold dim_eq, dim_add, dim_sub, dim_neg, dim_scale, dim_pow, dim_mul, dim_div,
+  unfold dim_eq, dim_add, dim_sub, dim_neg, dim_scale, dim_pow, dim_pow_Z, dim_mul, dim_div,
          dim_zero, dim_length, dim_mass, dim_time, dim_current,
          dim_temperature, dim_amount, dim_luminosity,
          dim_basis in *.
@@ -2381,6 +2460,14 @@ Ltac dim_decide :=
       intro H; dim_crush
   end.
 
+Ltac dim_reflect :=
+  match goal with
+  | |- ?d1 == ?d2 =>
+      exact (proj1 (dim_eqb_eq d1 d2) eq_refl)
+  | |- ~ (?d1 == ?d2) =>
+      exact (proj1 (dim_eqb_neq d1 d2) eq_refl)
+  end.
+
 Ltac dim_simpl :=
   repeat match goal with
   | |- context[dim_add ?d dim_zero] => rewrite (dim_add_0_r d)
@@ -2408,6 +2495,7 @@ Ltac dim_normalize :=
 Ltac dim_auto :=
   first [
     apply dim_eq_refl |
+    dim_reflect |
     dim_normalize; apply dim_eq_refl |
     dim_crush |
     auto with dim_db |
@@ -2488,13 +2576,30 @@ Hint Resolve dim_pow_mul : dim_db.
 Hint Resolve dim_pow_scale : dim_db.
 #[global]
 Hint Resolve dim_pow_zero : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_0 : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_1 : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_neg1 : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_neg : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_add : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_sub : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_mul : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_of_nat : dim_db.
 
 #[global]
 Hint Rewrite dim_add_0_l dim_add_0_r dim_add_neg_l dim_add_neg_r
              dim_neg_involutive dim_neg_zero dim_sub_diag
              dim_scale_0_l dim_scale_1_l dim_scale_scale
              dim_sub_0_r dim_sub_0_l
-             dim_pow_0 dim_pow_1 dim_pow_zero : dim_rw.
+             dim_pow_0 dim_pow_1 dim_pow_zero
+             dim_pow_Z_0 dim_pow_Z_1 dim_pow_Z_neg1 : dim_rw.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          AUTOMATION TESTS                                   *)
@@ -2570,3 +2675,21 @@ Proof.
   simpl in H.
   lia.
 Qed.
+
+Example reflect_test_1 : dim_velocity == (dim_length - dim_time).
+Proof. dim_reflect. Qed.
+
+Example reflect_test_2 : dim_force == (dim_mass + dim_acceleration).
+Proof. dim_reflect. Qed.
+
+Example reflect_test_3 : dim_energy == (dim_force + dim_length).
+Proof. dim_reflect. Qed.
+
+Example reflect_test_4 : ~ (dim_length == dim_time).
+Proof. dim_reflect. Qed.
+
+Example reflect_test_5 : ~ (dim_energy == dim_momentum).
+Proof. dim_reflect. Qed.
+
+Example reflect_test_6 : (dim_length ^Z (-2)) == ((-2) * dim_length).
+Proof. dim_reflect. Qed.
