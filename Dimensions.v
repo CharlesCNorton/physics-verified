@@ -5,6 +5,10 @@
 (*     Base physical dimensions and dimensional algebra. Pure Z arithmetic,   *)
 (*     no axioms, no Reals dependency. Foundation for dimensional analysis.   *)
 (*                                                                            *)
+(*     Scope: SI system with 7 base dimensions and integer exponents.         *)
+(*     CGS-Gaussian units require rational exponents (e.g., charge has        *)
+(*     dimension M^(1/2) L^(3/2) T^(-1)) and are not supported here.          *)
+(*                                                                            *)
 (*     The important thing in science is not so much to obtain new facts      *)
 (*     as to discover new ways of thinking about them.                        *)
 (*                         -- William Lawrence Bragg                          *)
@@ -14,6 +18,15 @@
 (*     License: MIT                                                           *)
 (*                                                                            *)
 (******************************************************************************)
+
+(* Known limitations and future work:
+   - No exhaustive pairwise counterexamples (C(80,2) = 3160 pairs)
+   - dim_pow naming may mislead: it's scalar multiplication, not exponentiation
+   - dim_mul/dim_div are aliases for dim_add/dim_sub, which can confuse readers
+   - Automation tactics (dim_crush, dim_reflect) only work on ground terms
+   - No Coquelicot/Reals bridge (to be added in Quantities.v)
+   - No MathComp/ssreflect wrapper module
+*)
 
 Require Import ZArith.
 Require Import Lia.
