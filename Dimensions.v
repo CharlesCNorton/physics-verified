@@ -1039,11 +1039,6 @@ Proof.
   discriminate.
 Qed.
 
-Lemma Z_one_neq_zero : (1 <> 0)%Z.
-Proof.
-  lia.
-Qed.
-
 Lemma dim_basis_injective (b1 b2 : BaseDim)
   : dim_basis b1 == dim_basis b2 -> b1 = b2.
 Proof.
@@ -1054,9 +1049,8 @@ Proof.
   destruct (BaseDim_eq_dec b2 b1) as [Heq|Hneq].
   - symmetry; exact Heq.
   - exfalso.
-    apply Z_one_neq_zero.
     simpl in H.
-    exact H.
+    lia.
 Qed.
 
 Lemma dim_basis_independent (b1 b2 : BaseDim)
@@ -1294,6 +1288,26 @@ Lemma dim_ratio_dimensionless (d : Dimension)
 Proof.
   unfold dim_dimensionless.
   apply dim_sub_diag.
+Qed.
+
+Lemma dim_pow_0_is_dimensionless (d : Dimension)
+  : (d ^ 0) == dim_dimensionless.
+Proof.
+  apply dim_eq_refl.
+Qed.
+
+Lemma dim_dimensionless_is_mul_identity_l (d : Dimension)
+  : dim_mul dim_dimensionless d == d.
+Proof.
+  unfold dim_dimensionless.
+  apply dim_mul_0_l.
+Qed.
+
+Lemma dim_dimensionless_is_mul_identity_r (d : Dimension)
+  : dim_mul d dim_dimensionless == d.
+Proof.
+  unfold dim_dimensionless.
+  apply dim_mul_0_r.
 Qed.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -2648,6 +2662,15 @@ Qed.
 
 Definition dim_eq_decidable (d1 d2 : Dimension) : {d1 == d2} + {~ d1 == d2} :=
   dim_eq_dec d1 d2.
+
+Class Decidable (P : Prop) := {
+  decide : {P} + {~ P}
+}.
+
+#[global]
+Instance dim_eq_Decidable (d1 d2 : Dimension) : Decidable (d1 == d2) := {
+  decide := dim_eq_dec d1 d2
+}.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          AUTOMATION TACTICS                                 *)
