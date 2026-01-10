@@ -376,6 +376,14 @@ Proof.
   reflexivity.
 Qed.
 
+Lemma dim_scale_compat_l (n1 n2 : Z) (d : Dimension)
+  : n1 = n2 -> (n1 * d) == (n2 * d).
+Proof.
+  intro H.
+  rewrite H.
+  apply dim_eq_refl.
+Qed.
+
 Lemma dim_pow_compat (n : nat) (d1 d2 : Dimension)
   : d1 == d2 -> (d1 ^ n) == (d2 ^ n).
 Proof.
@@ -879,6 +887,13 @@ Proof.
   apply dim_pow_scale.
 Qed.
 
+Lemma dim_pow_Z_zero (n : Z)
+  : (dim_zero ^Z n) == dim_zero.
+Proof.
+  unfold dim_pow_Z.
+  apply dim_scale_0_r.
+Qed.
+
 Lemma dim_pow_Z_compat (d1 d2 : Dimension) (n : Z)
   : d1 == d2 -> (d1 ^Z n) == (d2 ^Z n).
 Proof.
@@ -1265,6 +1280,9 @@ Definition dim_specific_energy     : Dimension := dim_energy - dim_mass.
 Definition dim_surface_tension     : Dimension := dim_force - dim_length.
 Definition dim_dynamic_viscosity   : Dimension := dim_pressure + dim_time.
 Definition dim_kinematic_viscosity : Dimension := dim_area - dim_time.
+Definition dim_stiffness           : Dimension := dim_force - dim_length.
+Definition dim_compliance          : Dimension := dim_length - dim_force.
+Definition dim_fluidity            : Dimension := - dim_dynamic_viscosity.
 
 Example dim_velocity_length_exp : dim_velocity DimLength = 1 := eq_refl.
 Example dim_velocity_time_exp : dim_velocity DimTime = -1 := eq_refl.
@@ -1458,6 +1476,8 @@ Qed.
 Definition dim_radioactivity     : Dimension := - dim_time.
 Definition dim_absorbed_dose     : Dimension := dim_energy - dim_mass.
 Definition dim_equivalent_dose   : Dimension := dim_energy - dim_mass.
+Definition dim_exposure          : Dimension := dim_charge - dim_mass.
+Definition dim_kerma             : Dimension := dim_energy - dim_mass.
 
 Example dim_radioactivity_time_exp : dim_radioactivity DimTime = -1 := eq_refl.
 Example dim_absorbed_dose_length_exp : dim_absorbed_dose DimLength = 2 := eq_refl.
@@ -1522,6 +1542,10 @@ Definition dim_electrical_conductivity : Dimension := dim_conductance - dim_leng
 Definition dim_spectral_radiance      : Dimension := dim_radiance - dim_length.
 Definition dim_specific_angular_momentum : Dimension := dim_area - dim_time.
 Definition dim_volumetric_heat_capacity  : Dimension := dim_energy - dim_volume - dim_temperature.
+Definition dim_acoustic_impedance        : Dimension := dim_pressure - dim_velocity.
+Definition dim_sound_intensity           : Dimension := dim_power - dim_area.
+Definition dim_optical_power             : Dimension := - dim_length.
+Definition dim_radiant_intensity         : Dimension := dim_power.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          SI NAMED UNIT ALIASES                              *)
@@ -1765,6 +1789,26 @@ Proof.
   destruct b; simpl; reflexivity.
 Qed.
 
+Lemma bernoulli_dynamic_pressure
+  : (dim_density + dim_velocity + dim_velocity) == dim_pressure.
+Proof.
+  unfold dim_density, dim_velocity, dim_pressure, dim_force, dim_area.
+  unfold dim_volume, dim_acceleration.
+  unfold dim_sub, dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma bernoulli_hydrostatic_pressure
+  : (dim_density + dim_acceleration + dim_length) == dim_pressure.
+Proof.
+  unfold dim_density, dim_acceleration, dim_pressure, dim_force, dim_area.
+  unfold dim_volume, dim_velocity.
+  unfold dim_sub, dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          PHYSICAL LAW WITNESSES: ELECTROMAGNETISM           *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -1891,6 +1935,16 @@ Proof.
   destruct b; simpl; reflexivity.
 Qed.
 
+Lemma compton_wavelength_dimension
+  : (dim_planck - dim_mass - dim_velocity) == dim_length.
+Proof.
+  unfold dim_planck, dim_action, dim_velocity, dim_energy.
+  unfold dim_force, dim_acceleration.
+  unfold dim_sub, dim_eq, dim_add, dim_neg, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
 Lemma heisenberg_uncertainty_dimension
   : (dim_length + dim_momentum) == dim_action.
 Proof.
@@ -1914,6 +1968,15 @@ Proof.
   destruct b; simpl; reflexivity.
 Qed.
 
+Lemma schwarzschild_radius_dimension
+  : (dim_gravitational + dim_mass - dim_velocity - dim_velocity) == dim_length.
+Proof.
+  unfold dim_gravitational, dim_velocity, dim_volume.
+  unfold dim_sub, dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          PHYSICAL LAW WITNESSES: GAS LAWS                   *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -1924,6 +1987,26 @@ Proof.
   unfold dim_gas_constant, dim_pressure, dim_volume, dim_energy.
   unfold dim_force, dim_acceleration, dim_velocity, dim_area.
   unfold dim_sub, dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma reynolds_number_dimensionless
+  : (dim_density + dim_velocity + dim_length - dim_dynamic_viscosity) == dim_zero.
+Proof.
+  unfold dim_density, dim_velocity, dim_dynamic_viscosity, dim_pressure.
+  unfold dim_volume, dim_force, dim_area, dim_acceleration.
+  unfold dim_sub, dim_eq, dim_add, dim_neg, dim_scale, dim_basis, dim_zero.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma fine_structure_constant_dimensionless
+  : (dim_charge + dim_charge - dim_permittivity - dim_action - dim_velocity) == dim_zero.
+Proof.
+  unfold dim_charge, dim_permittivity, dim_capacitance, dim_action.
+  unfold dim_voltage, dim_energy, dim_velocity, dim_force, dim_acceleration.
+  unfold dim_sub, dim_eq, dim_add, dim_neg, dim_scale, dim_basis, dim_zero.
   intro b.
   destruct b; simpl; reflexivity.
 Qed.
@@ -2283,6 +2366,43 @@ Proof.
   apply dim_eq_refl.
 Qed.
 
+Lemma action_has_same_dim_as_angular_momentum
+  : dim_action == dim_angular_momentum.
+Proof.
+  unfold dim_action, dim_angular_momentum, dim_energy, dim_momentum.
+  unfold dim_force, dim_acceleration, dim_velocity.
+  unfold dim_sub, dim_eq, dim_add, dim_neg, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma magnetic_moment_eq
+  : dim_magnetic_moment == (dim_current + dim_area).
+Proof.
+  apply dim_eq_refl.
+Qed.
+
+Lemma sound_intensity_has_same_dim_as_radiance
+  : dim_sound_intensity == dim_radiance.
+Proof.
+  unfold dim_sound_intensity, dim_radiance.
+  apply dim_eq_refl.
+Qed.
+
+Lemma stiffness_has_same_dim_as_surface_tension
+  : dim_stiffness == dim_surface_tension.
+Proof.
+  unfold dim_stiffness, dim_surface_tension.
+  apply dim_eq_refl.
+Qed.
+
+Lemma kerma_has_same_dim_as_absorbed_dose
+  : dim_kerma == dim_absorbed_dose.
+Proof.
+  unfold dim_kerma, dim_absorbed_dose.
+  apply dim_eq_refl.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          CANCELLATION LEMMAS                                *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -2426,15 +2546,27 @@ Ltac unfold_dim_derived :=
          dim_density, dim_torque, dim_angular_momentum, dim_moment_of_inertia,
          dim_action, dim_specific_energy, dim_surface_tension,
          dim_dynamic_viscosity, dim_kinematic_viscosity,
+         dim_stiffness, dim_compliance, dim_fluidity,
          dim_charge, dim_voltage, dim_capacitance, dim_resistance,
          dim_conductance, dim_magnetic_flux, dim_magnetic_field,
          dim_inductance, dim_permittivity, dim_permeability,
          dim_electric_field, dim_charge_density, dim_current_density,
          dim_heat_capacity, dim_specific_heat, dim_entropy, dim_thermal_conductivity,
          dim_radioactivity, dim_absorbed_dose, dim_equivalent_dose,
+         dim_exposure, dim_kerma,
          dim_gravitational, dim_boltzmann, dim_avogadro, dim_gas_constant,
          dim_faraday, dim_stefan_boltzmann, dim_planck, dim_coulomb_const,
          dim_dimensionless, dim_angle, dim_solid_angle, dim_strain, dim_refractive_index,
+         dim_luminous_flux, dim_illuminance, dim_luminance, dim_catalytic_activity,
+         dim_concentration, dim_molarity, dim_molar_mass, dim_molar_volume,
+         dim_molar_entropy, dim_specific_volume, dim_impulse, dim_mass_flow_rate,
+         dim_volume_flow_rate, dim_thermal_diffusivity, dim_compressibility,
+         dim_bulk_modulus, dim_magnetic_moment, dim_electric_dipole,
+         dim_magnetization, dim_polarization, dim_radiance,
+         dim_magnetic_reluctance, dim_electrical_resistivity, dim_electrical_conductivity,
+         dim_spectral_radiance, dim_specific_angular_momentum, dim_volumetric_heat_capacity,
+         dim_acoustic_impedance, dim_sound_intensity,
+         dim_optical_power, dim_radiant_intensity,
          dim_hertz, dim_newton, dim_pascal, dim_joule, dim_watt,
          dim_coulomb, dim_volt, dim_farad, dim_ohm, dim_siemens,
          dim_weber, dim_tesla, dim_henry, dim_lumen, dim_lux,
@@ -2592,6 +2724,8 @@ Hint Resolve dim_pow_Z_sub : dim_db.
 Hint Resolve dim_pow_Z_mul : dim_db.
 #[global]
 Hint Resolve dim_pow_Z_of_nat : dim_db.
+#[global]
+Hint Resolve dim_pow_Z_zero : dim_db.
 
 #[global]
 Hint Rewrite dim_add_0_l dim_add_0_r dim_add_neg_l dim_add_neg_r
@@ -2599,7 +2733,7 @@ Hint Rewrite dim_add_0_l dim_add_0_r dim_add_neg_l dim_add_neg_r
              dim_scale_0_l dim_scale_1_l dim_scale_scale
              dim_sub_0_r dim_sub_0_l
              dim_pow_0 dim_pow_1 dim_pow_zero
-             dim_pow_Z_0 dim_pow_Z_1 dim_pow_Z_neg1 : dim_rw.
+             dim_pow_Z_0 dim_pow_Z_1 dim_pow_Z_neg1 dim_pow_Z_zero : dim_rw.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          AUTOMATION TESTS                                   *)
@@ -2693,3 +2827,17 @@ Proof. dim_reflect. Qed.
 
 Example reflect_test_6 : (dim_length ^Z (-2)) == ((-2) * dim_length).
 Proof. dim_reflect. Qed.
+
+Example large_exponent_test : (dim_length ^ 10) == (10 * dim_length).
+Proof. dim_crush. Qed.
+
+Example negative_scale_test : ((-1) * dim_velocity) == (- dim_velocity).
+Proof. dim_crush. Qed.
+
+Example deep_assoc_test : (((dim_length + dim_mass) + dim_time) + dim_current) ==
+                          (dim_length + (dim_mass + (dim_time + dim_current))).
+Proof. dim_crush. Qed.
+
+Example mixed_ops_test : (2 * dim_length - 2 * dim_time + dim_mass) ==
+                         (dim_area - dim_time - dim_time + dim_mass).
+Proof. dim_crush. Qed.
