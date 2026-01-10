@@ -15,6 +15,17 @@
 (*                                                                            *)
 (******************************************************************************)
 
+(* TODO:                                                                      *)
+(*                                                                            *)
+(* - Wrap Dimension in opaque record via module signature for nominal typing. *)
+(*                                                                            *)
+(* - Add physics witnesses (Lorentz, Maxwell, Navier-Stokes, Schrodinger,     *)
+(*   Wien/Planck) in Quantities.v once real-valued magnitudes are available.  *)
+(*                                                                            *)
+(* - Build dim_zmodule tactic leveraging Z-module structure for automation.   *)
+(*                                                                            *)
+(* - Add MathComp wrapper module for ssreflect integration.                   *)
+
 Require Import ZArith.
 Require Import Lia.
 Require Import Setoid.
@@ -166,6 +177,15 @@ Definition dim_sub (d1 d2 : Dimension) : Dimension :=
 Definition dim_scale (n : Z) (d : Dimension) : Dimension :=
   fun b => n * d b.
 
+Fixpoint dim_pow (d : Dimension) (n : nat) : Dimension :=
+  match n with
+  | O => dim_zero
+  | S n' => dim_add d (dim_pow d n')
+  end.
+
+Definition dim_mul : Dimension -> Dimension -> Dimension := dim_add.
+Definition dim_div : Dimension -> Dimension -> Dimension := dim_sub.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          DIMENSION EQUALITY                                 *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -188,6 +208,7 @@ Notation "d1 + d2" := (dim_add d1 d2) : dim_scope.
 Notation "- d" := (dim_neg d) : dim_scope.
 Notation "d1 - d2" := (dim_sub d1 d2) : dim_scope.
 Notation "n * d" := (dim_scale n d) : dim_scope.
+Notation "d ^ n" := (dim_pow d n) : dim_scope.
 
 Open Scope dim_scope.
 
@@ -358,6 +379,18 @@ Proof.
   reflexivity.
 Qed.
 
+Lemma dim_pow_compat (n : nat) (d1 d2 : Dimension)
+  : d1 == d2 -> (d1 ^ n) == (d2 ^ n).
+Proof.
+  intro H.
+  induction n as [|n' IH].
+  - apply dim_eq_refl.
+  - simpl.
+    apply dim_add_compat.
+    + exact H.
+    + exact IH.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          MORPHISM INSTANCES                                 *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -396,6 +429,21 @@ Proof.
   intros n1 n2 Hn d1 d2 Hd.
   rewrite Hn.
   apply dim_scale_compat; assumption.
+Qed.
+
+#[global]
+Instance dim_pow_Proper_l (n : nat) : Proper (dim_eq ==> dim_eq) (fun d => dim_pow d n).
+Proof.
+  intros d1 d2 H.
+  apply dim_pow_compat; assumption.
+Qed.
+
+#[global]
+Instance dim_pow_Proper : Proper (dim_eq ==> eq ==> dim_eq) dim_pow.
+Proof.
+  intros d1 d2 Hd n1 n2 Hn.
+  rewrite Hn.
+  apply dim_pow_compat; assumption.
 Qed.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -669,6 +717,106 @@ Instance Dimension_ZModule : ZModule dim_eq dim_add dim_neg dim_zero dim_scale :
 }.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          EXPONENTIATION STRUCTURE                           *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Lemma dim_pow_0 (d : Dimension)
+  : (d ^ 0) == dim_zero.
+Proof.
+  apply dim_eq_refl.
+Qed.
+
+Lemma dim_pow_1 (d : Dimension)
+  : (d ^ 1) == d.
+Proof.
+  simpl.
+  apply dim_add_0_r.
+Qed.
+
+Lemma dim_pow_S (d : Dimension) (n : nat)
+  : (d ^ S n) == (d + d ^ n).
+Proof.
+  apply dim_eq_refl.
+Qed.
+
+Lemma dim_pow_add (d : Dimension) (m n : nat)
+  : (d ^ (m + n)) == (d ^ m + d ^ n).
+Proof.
+  induction m as [|m' IH].
+  - simpl.
+    apply dim_eq_sym.
+    apply dim_add_0_l.
+  - simpl.
+    apply dim_eq_trans with (d2 := d + (d ^ m' + d ^ n)).
+    + apply dim_add_compat_r.
+      exact IH.
+    + apply dim_eq_sym.
+      apply dim_add_assoc.
+Qed.
+
+Lemma dim_pow_mul (d : Dimension) (m n : nat)
+  : (d ^ (m * n)) == ((d ^ m) ^ n).
+Proof.
+  induction n as [|n' IH].
+  - simpl.
+    rewrite Nat.mul_0_r.
+    apply dim_eq_refl.
+  - simpl.
+    rewrite Nat.mul_succ_r.
+    apply dim_eq_trans with (d2 := d ^ (m * n') + d ^ m).
+    + apply dim_pow_add.
+    + apply dim_eq_trans with (d2 := d ^ m + d ^ (m * n')).
+      * apply dim_add_comm.
+      * apply dim_add_compat_r.
+        exact IH.
+Qed.
+
+Lemma dim_pow_scale (d : Dimension) (n : nat)
+  : (d ^ n) == (Z.of_nat n * d).
+Proof.
+  induction n as [|n' IH].
+  - simpl.
+    apply dim_eq_sym.
+    apply dim_scale_0_l.
+  - simpl.
+    apply dim_eq_trans with (d2 := d + Z.of_nat n' * d).
+    + apply dim_add_compat_r.
+      exact IH.
+    + unfold dim_eq, dim_add, dim_scale.
+      intro b.
+      lia.
+Qed.
+
+Lemma dim_pow_zero (n : nat)
+  : (dim_zero ^ n) == dim_zero.
+Proof.
+  induction n as [|n' IH].
+  - apply dim_eq_refl.
+  - simpl.
+    apply dim_eq_trans with (d2 := dim_zero + dim_zero).
+    + apply dim_add_compat_r.
+      exact IH.
+    + apply dim_add_0_r.
+Qed.
+
+Lemma dim_scale_pow (n : Z) (d : Dimension) (m : nat)
+  : (n * d) ^ m == (n * Z.of_nat m * d).
+Proof.
+  induction m as [|m' IH].
+  - simpl.
+    unfold dim_eq, dim_zero, dim_scale.
+    intro b.
+    lia.
+  - simpl.
+    apply dim_eq_trans with (d2 := n * d + n * Z.of_nat m' * d).
+    + apply dim_add_compat_r.
+      exact IH.
+    + unfold dim_eq, dim_add, dim_scale.
+      intro b.
+      lia.
+Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          CHARACTERIZATION OF DIM_ZERO                       *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 
@@ -770,6 +918,14 @@ Definition dim_temperature : Dimension := dim_basis DimTemperature.
 Definition dim_amount      : Dimension := dim_basis DimAmount.
 Definition dim_luminosity  : Dimension := dim_basis DimLuminosity.
 
+Notation "'L'" := dim_length : dim_scope.
+Notation "'M'" := dim_mass : dim_scope.
+Notation "'T'" := dim_time : dim_scope.
+Notation "'I'" := dim_current : dim_scope.
+Notation "'Θ'" := dim_temperature : dim_scope.
+Notation "'N'" := dim_amount : dim_scope.
+Notation "'J'" := dim_luminosity : dim_scope.
+
 Lemma dim_decompose (d : Dimension)
   : d == (d DimLength * dim_length + d DimMass * dim_mass + d DimTime * dim_time +
           d DimCurrent * dim_current + d DimTemperature * dim_temperature +
@@ -790,6 +946,69 @@ Proof.
   exists (d DimLength), (d DimMass), (d DimTime), (d DimCurrent),
          (d DimTemperature), (d DimAmount), (d DimLuminosity).
   apply dim_decompose.
+Qed.
+
+Lemma dim_decompose_unique (l1 m1 t1 i1 th1 n1 lu1 l2 m2 t2 i2 th2 n2 lu2 : Z)
+  : (l1 * dim_length + m1 * dim_mass + t1 * dim_time +
+     i1 * dim_current + th1 * dim_temperature +
+     n1 * dim_amount + lu1 * dim_luminosity) ==
+    (l2 * dim_length + m2 * dim_mass + t2 * dim_time +
+     i2 * dim_current + th2 * dim_temperature +
+     n2 * dim_amount + lu2 * dim_luminosity) ->
+    l1 = l2 /\ m1 = m2 /\ t1 = t2 /\ i1 = i2 /\ th1 = th2 /\ n1 = n2 /\ lu1 = lu2.
+Proof.
+  unfold dim_eq, dim_add, dim_scale.
+  unfold dim_length, dim_mass, dim_time, dim_current, dim_temperature, dim_amount, dim_luminosity, dim_basis.
+  intro H.
+  repeat split.
+  - specialize (H DimLength); simpl in H; lia.
+  - specialize (H DimMass); simpl in H; lia.
+  - specialize (H DimTime); simpl in H; lia.
+  - specialize (H DimCurrent); simpl in H; lia.
+  - specialize (H DimTemperature); simpl in H; lia.
+  - specialize (H DimAmount); simpl in H; lia.
+  - specialize (H DimLuminosity); simpl in H; lia.
+Qed.
+
+Lemma dim_coefficients_unique (d : Dimension)
+  : forall l m t i th n lu,
+    d == (l * dim_length + m * dim_mass + t * dim_time +
+          i * dim_current + th * dim_temperature +
+          n * dim_amount + lu * dim_luminosity) ->
+    l = d DimLength /\ m = d DimMass /\ t = d DimTime /\
+    i = d DimCurrent /\ th = d DimTemperature /\ n = d DimAmount /\ lu = d DimLuminosity.
+Proof.
+  intros l m t i th n lu H.
+  unfold dim_eq, dim_add, dim_scale in H.
+  unfold dim_length, dim_mass, dim_time, dim_current, dim_temperature, dim_amount, dim_luminosity, dim_basis in H.
+  repeat split.
+  - specialize (H DimLength); simpl in H; lia.
+  - specialize (H DimMass); simpl in H; lia.
+  - specialize (H DimTime); simpl in H; lia.
+  - specialize (H DimCurrent); simpl in H; lia.
+  - specialize (H DimTemperature); simpl in H; lia.
+  - specialize (H DimAmount); simpl in H; lia.
+  - specialize (H DimLuminosity); simpl in H; lia.
+Qed.
+
+Lemma dim_linear_combination_zero
+  : forall l m t i th n lu,
+    (l * dim_length + m * dim_mass + t * dim_time +
+     i * dim_current + th * dim_temperature +
+     n * dim_amount + lu * dim_luminosity) == dim_zero ->
+    l = 0 /\ m = 0 /\ t = 0 /\ i = 0 /\ th = 0 /\ n = 0 /\ lu = 0.
+Proof.
+  intros l m t i th n lu H.
+  unfold dim_eq, dim_add, dim_scale, dim_zero in H.
+  unfold dim_length, dim_mass, dim_time, dim_current, dim_temperature, dim_amount, dim_luminosity, dim_basis in H.
+  repeat split.
+  - specialize (H DimLength); simpl in H; lia.
+  - specialize (H DimMass); simpl in H; lia.
+  - specialize (H DimTime); simpl in H; lia.
+  - specialize (H DimCurrent); simpl in H; lia.
+  - specialize (H DimTemperature); simpl in H; lia.
+  - specialize (H DimAmount); simpl in H; lia.
+  - specialize (H DimLuminosity); simpl in H; lia.
 Qed.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -1226,6 +1445,30 @@ Definition dim_specific_angular_momentum : Dimension := dim_area - dim_time.
 Definition dim_volumetric_heat_capacity  : Dimension := dim_energy - dim_volume - dim_temperature.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          SI NAMED UNIT ALIASES                              *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Definition dim_hertz   : Dimension := dim_frequency.
+Definition dim_newton  : Dimension := dim_force.
+Definition dim_pascal  : Dimension := dim_pressure.
+Definition dim_joule   : Dimension := dim_energy.
+Definition dim_watt    : Dimension := dim_power.
+Definition dim_coulomb : Dimension := dim_charge.
+Definition dim_volt    : Dimension := dim_voltage.
+Definition dim_farad   : Dimension := dim_capacitance.
+Definition dim_ohm     : Dimension := dim_resistance.
+Definition dim_siemens : Dimension := dim_conductance.
+Definition dim_weber   : Dimension := dim_magnetic_flux.
+Definition dim_tesla   : Dimension := dim_magnetic_field.
+Definition dim_henry   : Dimension := dim_inductance.
+Definition dim_lumen   : Dimension := dim_luminous_flux.
+Definition dim_lux     : Dimension := dim_illuminance.
+Definition dim_becquerel : Dimension := dim_radioactivity.
+Definition dim_gray    : Dimension := dim_absorbed_dose.
+Definition dim_sievert : Dimension := dim_equivalent_dose.
+Definition dim_katal   : Dimension := dim_catalytic_activity.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          DERIVED DIMENSIONS: CONSTANTS                      *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 
@@ -1634,6 +1877,79 @@ Proof.
 Qed.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          PHYSICAL LAW WITNESSES: ADVANCED                   *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Lemma lorentz_force_electric_term
+  : (dim_charge + dim_electric_field) == dim_force.
+Proof.
+  unfold dim_electric_field, dim_voltage, dim_charge, dim_energy, dim_force.
+  unfold dim_acceleration, dim_velocity, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma lorentz_force_magnetic_term
+  : (dim_charge + dim_velocity + dim_magnetic_field) == dim_force.
+Proof.
+  unfold dim_magnetic_field, dim_magnetic_flux, dim_voltage, dim_charge.
+  unfold dim_energy, dim_force, dim_acceleration, dim_velocity, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma wave_equation_consistency
+  : (dim_velocity + dim_velocity + dim_wavenumber + dim_wavenumber) == (dim_frequency + dim_frequency).
+Proof.
+  unfold dim_wavenumber, dim_velocity, dim_frequency, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma schrodinger_lhs_dimension
+  : (dim_planck + dim_frequency) == dim_energy.
+Proof.
+  unfold dim_planck, dim_action, dim_frequency, dim_energy, dim_force.
+  unfold dim_acceleration, dim_velocity, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma navier_stokes_viscosity_term
+  : (dim_kinematic_viscosity + dim_velocity - dim_length - dim_length) == dim_acceleration.
+Proof.
+  unfold dim_kinematic_viscosity, dim_area, dim_velocity, dim_acceleration, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma maxwell_displacement_current
+  : (dim_permittivity + dim_electric_field - dim_time) == dim_current_density.
+Proof.
+  unfold dim_permittivity, dim_capacitance, dim_charge, dim_voltage.
+  unfold dim_electric_field, dim_current_density, dim_energy, dim_force.
+  unfold dim_acceleration, dim_velocity, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma maxwell_faraday_law
+  : (dim_electric_field + dim_length) == (dim_magnetic_flux - dim_time).
+Proof.
+  unfold dim_electric_field, dim_voltage, dim_magnetic_flux, dim_charge.
+  unfold dim_energy, dim_force, dim_acceleration, dim_velocity, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          COUNTEREXAMPLES: BASE DIMENSIONS                   *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 
@@ -1981,6 +2297,15 @@ Proof.
       * apply dim_add_0_l.
 Qed.
 
+Lemma dim_scale_injective (n : Z) (d1 d2 : Dimension)
+  : n <> 0%Z -> (n * d1) == (n * d2) -> d1 == d2.
+Proof.
+  unfold dim_eq, dim_scale.
+  intros Hn H b.
+  specialize (H b).
+  nia.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          REFLECTION                                         *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -2009,8 +2334,8 @@ Definition dim_eq_decidable (d1 d2 : Dimension) : {d1 == d2} + {~ d1 == d2} :=
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 
 Ltac unfold_dim_base :=
-  unfold dim_eq, dim_add, dim_sub, dim_neg, dim_scale, dim_zero,
-         dim_length, dim_mass, dim_time, dim_current,
+  unfold dim_eq, dim_add, dim_sub, dim_neg, dim_scale, dim_pow, dim_mul, dim_div,
+         dim_zero, dim_length, dim_mass, dim_time, dim_current,
          dim_temperature, dim_amount, dim_luminosity,
          dim_basis in *.
 
@@ -2030,7 +2355,11 @@ Ltac unfold_dim_derived :=
          dim_radioactivity, dim_absorbed_dose, dim_equivalent_dose,
          dim_gravitational, dim_boltzmann, dim_avogadro, dim_gas_constant,
          dim_faraday, dim_stefan_boltzmann, dim_planck, dim_coulomb_const,
-         dim_dimensionless, dim_angle, dim_solid_angle, dim_strain, dim_refractive_index in *.
+         dim_dimensionless, dim_angle, dim_solid_angle, dim_strain, dim_refractive_index,
+         dim_hertz, dim_newton, dim_pascal, dim_joule, dim_watt,
+         dim_coulomb, dim_volt, dim_farad, dim_ohm, dim_siemens,
+         dim_weber, dim_tesla, dim_henry, dim_lumen, dim_lux,
+         dim_becquerel, dim_gray, dim_sievert, dim_katal in *.
 
 Ltac unfold_dim :=
   unfold_dim_derived; unfold_dim_base.
@@ -2051,6 +2380,53 @@ Ltac dim_decide :=
       let H := fresh "H" in
       intro H; dim_crush
   end.
+
+Ltac dim_simpl :=
+  repeat match goal with
+  | |- context[dim_add ?d dim_zero] => rewrite (dim_add_0_r d)
+  | |- context[dim_add dim_zero ?d] => rewrite (dim_add_0_l d)
+  | |- context[dim_add ?d (dim_neg ?d)] => rewrite (dim_add_neg_r d)
+  | |- context[dim_add (dim_neg ?d) ?d] => rewrite (dim_add_neg_l d)
+  | |- context[dim_neg (dim_neg ?d)] => rewrite (dim_neg_involutive d)
+  | |- context[dim_neg dim_zero] => rewrite dim_neg_zero
+  | |- context[dim_sub ?d ?d] => rewrite (dim_sub_diag d)
+  | |- context[dim_sub ?d dim_zero] => rewrite (dim_sub_0_r d)
+  | |- context[dim_sub dim_zero ?d] => rewrite (dim_sub_0_l d)
+  | |- context[dim_scale 0 ?d] => rewrite (dim_scale_0_l d)
+  | |- context[dim_scale 1 ?d] => rewrite (dim_scale_1_l d)
+  | |- context[dim_scale ?n dim_zero] => rewrite (dim_scale_0_r n)
+  | |- context[dim_pow ?d 0] => rewrite (dim_pow_0 d)
+  | |- context[dim_pow ?d 1] => rewrite (dim_pow_1 d)
+  | |- context[dim_pow dim_zero ?n] => rewrite (dim_pow_zero n)
+  end.
+
+Ltac dim_normalize :=
+  unfold dim_mul, dim_div, dim_sub in *;
+  unfold_dim_derived;
+  dim_simpl.
+
+Ltac dim_auto :=
+  first [
+    apply dim_eq_refl |
+    dim_normalize; apply dim_eq_refl |
+    dim_crush |
+    auto with dim_db |
+    dim_decide
+  ].
+
+Ltac dim_neq :=
+  let H := fresh "H" in
+  intro H;
+  unfold_dim;
+  first [
+    specialize (H DimLength); simpl in H; lia |
+    specialize (H DimMass); simpl in H; lia |
+    specialize (H DimTime); simpl in H; lia |
+    specialize (H DimCurrent); simpl in H; lia |
+    specialize (H DimTemperature); simpl in H; lia |
+    specialize (H DimAmount); simpl in H; lia |
+    specialize (H DimLuminosity); simpl in H; lia
+  ].
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          HINT DATABASES                                     *)
@@ -2098,12 +2474,27 @@ Hint Resolve dim_neg_add : dim_db.
 Hint Resolve dim_sub_0_r : dim_db.
 #[global]
 Hint Resolve dim_sub_0_l : dim_db.
+#[global]
+Hint Resolve dim_pow_0 : dim_db.
+#[global]
+Hint Resolve dim_pow_1 : dim_db.
+#[global]
+Hint Resolve dim_pow_S : dim_db.
+#[global]
+Hint Resolve dim_pow_add : dim_db.
+#[global]
+Hint Resolve dim_pow_mul : dim_db.
+#[global]
+Hint Resolve dim_pow_scale : dim_db.
+#[global]
+Hint Resolve dim_pow_zero : dim_db.
 
 #[global]
 Hint Rewrite dim_add_0_l dim_add_0_r dim_add_neg_l dim_add_neg_r
              dim_neg_involutive dim_neg_zero dim_sub_diag
              dim_scale_0_l dim_scale_1_l dim_scale_scale
-             dim_sub_0_r dim_sub_0_l : dim_rw.
+             dim_sub_0_r dim_sub_0_l
+             dim_pow_0 dim_pow_1 dim_pow_zero : dim_rw.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          AUTOMATION TESTS                                   *)
@@ -2128,6 +2519,53 @@ Example crush_test_3 : ~ (dim_length == dim_mass).
 Proof.
   unfold_dim.
   intro H.
+  specialize (H DimLength).
+  simpl in H.
+  lia.
+Qed.
+
+Example pow_test_1 : (dim_length ^ 2) == dim_area.
+Proof. dim_crush. Qed.
+
+Example pow_test_2 : (dim_length ^ 3) == dim_volume.
+Proof. dim_crush. Qed.
+
+Example pow_test_3 : (dim_length ^ 0) == dim_zero.
+Proof. auto with dim_db. Qed.
+
+Example pow_test_4 : (dim_length ^ 1) == dim_length.
+Proof. auto with dim_db. Qed.
+
+Example notation_test_1 : (M + L - T - T) == dim_force.
+Proof. dim_crush. Qed.
+
+Example notation_test_2 : (M + L^2 - T^2) == dim_energy.
+Proof. dim_crush. Qed.
+
+Example notation_test_3 : (L - T) == dim_velocity.
+Proof. dim_crush. Qed.
+
+Example dim_auto_test_1 : dim_force == dim_newton.
+Proof. dim_auto. Qed.
+
+Example dim_auto_test_2 : dim_energy == dim_joule.
+Proof. dim_auto. Qed.
+
+Example dim_auto_test_3 : (dim_mass + dim_velocity) == dim_momentum.
+Proof. dim_auto. Qed.
+
+Example dim_auto_test_4 : (dim_length + dim_zero) == dim_length.
+Proof. dim_auto. Qed.
+
+Example dim_simpl_test : (dim_length - dim_length + dim_mass) == dim_mass.
+Proof. dim_crush. Qed.
+
+Example dim_neq_test : ~ (dim_force == dim_energy).
+Proof.
+  intro H.
+  unfold dim_force, dim_energy, dim_acceleration, dim_velocity, dim_sub in H.
+  unfold dim_eq, dim_add, dim_neg in H.
+  unfold dim_mass, dim_length, dim_time, dim_basis in H.
   specialize (H DimLength).
   simpl in H.
   lia.
