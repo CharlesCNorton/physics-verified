@@ -81,7 +81,7 @@ Qed.
 Definition all_base_dims : list BaseDim :=
   [DimLength; DimMass; DimTime; DimCurrent; DimTemperature; DimAmount; DimLuminosity].
 
-Lemma all_base_dims_exhaustive (b : BaseDim)
+Local Lemma all_base_dims_exhaustive (b : BaseDim)
   : In b all_base_dims.
 Proof.
   destruct b; simpl.
@@ -94,7 +94,7 @@ Proof.
   - right; right; right; right; right; right; left; reflexivity.
 Qed.
 
-Lemma all_base_dims_NoDup
+Local Lemma all_base_dims_NoDup
   : NoDup all_base_dims.
 Proof.
   repeat constructor; simpl; intuition discriminate.
@@ -198,7 +198,13 @@ Definition dim_eq (d1 d2 : Dimension) : Prop :=
   forall b, d1 b = d2 b.
 
 Definition dim_eqb (d1 d2 : Dimension) : bool :=
-  forallb (fun b => Z.eqb (d1 b) (d2 b)) all_base_dims.
+  Z.eqb (d1 DimLength) (d2 DimLength) &&
+  Z.eqb (d1 DimMass) (d2 DimMass) &&
+  Z.eqb (d1 DimTime) (d2 DimTime) &&
+  Z.eqb (d1 DimCurrent) (d2 DimCurrent) &&
+  Z.eqb (d1 DimTemperature) (d2 DimTemperature) &&
+  Z.eqb (d1 DimAmount) (d2 DimAmount) &&
+  Z.eqb (d1 DimLuminosity) (d2 DimLuminosity).
 
 Definition dim_neqb (d1 d2 : Dimension) : bool :=
   negb (dim_eqb d1 d2).
@@ -263,16 +269,14 @@ Proof.
   unfold dim_eqb, dim_eq.
   split.
   - intro H.
-    rewrite forallb_forall in H.
+    repeat rewrite andb_true_iff in H.
+    destruct H as [[[[[[Hl Hm] Ht] Hi] Hth] Hn] Hlu].
+    apply Z.eqb_eq in Hl, Hm, Ht, Hi, Hth, Hn, Hlu.
     intro b.
-    apply Z.eqb_eq.
-    apply H.
-    apply all_base_dims_exhaustive.
+    destruct b; assumption.
   - intro H.
-    rewrite forallb_forall.
-    intros b Hin.
-    apply Z.eqb_eq.
-    apply H.
+    repeat rewrite andb_true_iff.
+    repeat split; apply Z.eqb_eq; apply H.
 Qed.
 
 Lemma dim_eqb_neq (d1 d2 : Dimension)
@@ -322,7 +326,7 @@ Defined.
 (*                          CONGRUENCE LEMMAS                                  *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 
-Lemma dim_add_compat_l (d1 d2 d3 : Dimension)
+Local Lemma dim_add_compat_l (d1 d2 d3 : Dimension)
   : d1 == d2 -> (d1 + d3) == (d2 + d3).
 Proof.
   unfold dim_eq, dim_add.
@@ -332,7 +336,7 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma dim_add_compat_r (d1 d2 d3 : Dimension)
+Local Lemma dim_add_compat_r (d1 d2 d3 : Dimension)
   : d1 == d2 -> (d3 + d1) == (d3 + d2).
 Proof.
   unfold dim_eq, dim_add.
@@ -603,7 +607,7 @@ Class AbelianGroup {A : Type} (eq : A -> A -> Prop) (op : A -> A -> A) (inv : A 
   ag_inv_r : forall x, eq (op x (inv x)) id
 }.
 
-#[global]
+#[local]
 Instance Dimension_AbelianGroup : AbelianGroup dim_eq dim_add dim_neg dim_zero := {
   ag_equiv := dim_eq_Equivalence;
   ag_op_proper := dim_add_Proper;
@@ -779,7 +783,7 @@ Class ZModule {A : Type} (eq : A -> A -> Prop) (add : A -> A -> A)
   zm_scale_plus_distr : forall m n a, eq (scale (Z.add m n) a) (add (scale m a) (scale n a))
 }.
 
-#[global]
+#[local]
 Instance Dimension_ZModule : ZModule dim_eq dim_add dim_neg dim_zero dim_scale := {
   zm_abelian := Dimension_AbelianGroup;
   zm_scale_proper := dim_scale_Proper_r;
@@ -982,6 +986,14 @@ Lemma dim_pow_Z_compat (d1 d2 : Dimension) (n : Z)
 Proof.
   unfold dim_pow_Z.
   apply dim_scale_compat.
+Qed.
+
+Lemma dim_pow_Z_compat_l (d : Dimension) (n1 n2 : Z)
+  : n1 = n2 -> (d ^Z n1) == (d ^Z n2).
+Proof.
+  intro H.
+  rewrite H.
+  apply dim_eq_refl.
 Qed.
 
 #[global]
@@ -1647,6 +1659,8 @@ Definition dim_acoustic_impedance        : Dimension := dim_pressure - dim_veloc
 Definition dim_sound_intensity           : Dimension := dim_power - dim_area.
 Definition dim_optical_power             : Dimension := - dim_length.
 Definition dim_radiant_intensity         : Dimension := dim_power.
+Definition dim_gravitomagnetic_field     : Dimension := - dim_time.
+Definition dim_sound_pressure            : Dimension := dim_pressure.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          SI NAMED UNIT ALIASES                              *)
@@ -2248,6 +2262,66 @@ Proof.
   destruct b; simpl; reflexivity.
 Qed.
 
+Lemma ampere_law_dimension
+  : (dim_magnetic_field + dim_length) == (dim_permeability + dim_current).
+Proof.
+  unfold dim_magnetic_field, dim_magnetic_flux, dim_permeability, dim_inductance.
+  unfold dim_voltage, dim_energy, dim_force, dim_acceleration, dim_velocity.
+  unfold dim_area, dim_charge, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma gauss_law_dimension
+  : (dim_permittivity + dim_electric_field + dim_area) == dim_charge.
+Proof.
+  unfold dim_permittivity, dim_capacitance, dim_electric_field, dim_voltage.
+  unfold dim_charge, dim_energy, dim_force, dim_acceleration, dim_velocity.
+  unfold dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma biot_savart_dimension
+  : (dim_permeability + dim_current - dim_length) == dim_magnetic_field.
+Proof.
+  unfold dim_permeability, dim_inductance, dim_magnetic_flux, dim_magnetic_field.
+  unfold dim_voltage, dim_energy, dim_force, dim_acceleration, dim_velocity.
+  unfold dim_area, dim_charge, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma continuity_equation_dimension
+  : (dim_density - dim_time) == (dim_mass_flow_rate - dim_volume).
+Proof.
+  unfold dim_density, dim_mass_flow_rate, dim_volume, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma heat_equation_dimension
+  : (dim_temperature - dim_time) == (dim_thermal_diffusivity + dim_temperature - dim_area).
+Proof.
+  unfold dim_thermal_diffusivity, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma diffusion_equation_dimension
+  : (dim_concentration - dim_time) == (dim_kinematic_viscosity + dim_concentration - dim_area).
+Proof.
+  unfold dim_concentration, dim_kinematic_viscosity, dim_area, dim_volume, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          COUNTEREXAMPLES: BASE DIMENSIONS                   *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -2571,7 +2645,7 @@ Proof.
   lia.
 Qed.
 
-Lemma dim_neg_unique' (d x : Dimension)
+Local Lemma dim_neg_unique' (d x : Dimension)
   : (x + d) == dim_zero -> x == (- d).
 Proof.
   unfold dim_eq, dim_add, dim_neg, dim_zero.
@@ -2671,6 +2745,32 @@ Proof.
     exact E.
 Qed.
 
+Lemma dim_eq_by_vm (d1 d2 : Dimension)
+  : dim_eqb d1 d2 = true -> d1 == d2.
+Proof.
+  apply dim_eqb_eq.
+Qed.
+
+Lemma dim_neq_by_vm (d1 d2 : Dimension)
+  : dim_eqb d1 d2 = false -> ~ (d1 == d2).
+Proof.
+  apply dim_eqb_neq.
+Qed.
+
+Ltac dim_vm_decide :=
+  match goal with
+  | |- ?d1 == ?d2 =>
+      apply dim_eq_by_vm; vm_compute; reflexivity
+  | |- ~ (?d1 == ?d2) =>
+      apply dim_neq_by_vm; vm_compute; reflexivity
+  end.
+
+Example vm_compute_test_1 : dim_force == (dim_mass + dim_acceleration).
+Proof. dim_vm_decide. Qed.
+
+Example vm_compute_test_2 : ~ (dim_energy == dim_momentum).
+Proof. dim_vm_decide. Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          DECIDABILITY INSTANCES                             *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -2678,14 +2778,6 @@ Qed.
 Definition dim_eq_decidable (d1 d2 : Dimension) : {d1 == d2} + {~ d1 == d2} :=
   dim_eq_dec d1 d2.
 
-Class Decidable (P : Prop) := {
-  decide : {P} + {~ P}
-}.
-
-#[global]
-Instance dim_eq_Decidable (d1 d2 : Dimension) : Decidable (d1 == d2) := {
-  decide := dim_eq_dec d1 d2
-}.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          AUTOMATION TACTICS                                 *)
@@ -2730,6 +2822,7 @@ Ltac unfold_dim_derived :=
          dim_spectral_radiance, dim_specific_angular_momentum, dim_volumetric_heat_capacity,
          dim_acoustic_impedance, dim_sound_intensity,
          dim_optical_power, dim_radiant_intensity,
+         dim_gravitomagnetic_field, dim_sound_pressure,
          dim_hertz, dim_newton, dim_pascal, dim_joule, dim_watt,
          dim_coulomb, dim_volt, dim_farad, dim_ohm, dim_siemens,
          dim_weber, dim_tesla, dim_henry, dim_lumen, dim_lux,
@@ -2891,6 +2984,23 @@ Hint Resolve dim_pow_Z_of_nat : dim_db.
 Hint Resolve dim_pow_Z_zero : dim_db.
 
 #[global]
+Hint Resolve dim_length_not_zero dim_mass_not_zero dim_time_not_zero : dim_db.
+#[global]
+Hint Resolve dim_current_not_zero dim_temperature_not_zero : dim_db.
+#[global]
+Hint Resolve dim_amount_not_zero dim_luminosity_not_zero : dim_db.
+#[global]
+Hint Resolve dim_length_neq_mass dim_length_neq_time dim_length_neq_current : dim_db.
+#[global]
+Hint Resolve dim_mass_neq_time dim_mass_neq_current dim_time_neq_current : dim_db.
+#[global]
+Hint Resolve dim_velocity_not_zero dim_force_not_zero dim_energy_not_zero : dim_db.
+#[global]
+Hint Resolve energy_not_momentum force_not_energy velocity_not_acceleration : dim_db.
+#[global]
+Hint Resolve power_not_energy momentum_not_force pressure_not_energy : dim_db.
+
+#[global]
 Hint Rewrite dim_add_0_l dim_add_0_r dim_add_neg_l dim_add_neg_r
              dim_neg_involutive dim_neg_zero dim_sub_diag
              dim_scale_0_l dim_scale_1_l dim_scale_scale
@@ -3005,6 +3115,24 @@ Example mixed_ops_test : (2 * dim_length - 2 * dim_time + dim_mass) ==
                          (dim_area - dim_time - dim_time + dim_mass).
 Proof. dim_crush. Qed.
 
+Example autorewrite_test_1 : dim_eqb dim_force dim_force = true.
+Proof.
+  autorewrite with dim_rw.
+  reflexivity.
+Qed.
+
+Example autorewrite_test_2 : dim_eqb dim_energy dim_energy = true.
+Proof.
+  autorewrite with dim_rw.
+  reflexivity.
+Qed.
+
+Example autorewrite_test_3 : dim_eqb dim_velocity dim_velocity = true.
+Proof.
+  autorewrite with dim_rw.
+  reflexivity.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          GENERAL INEQUALITY THEOREMS                        *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -3017,43 +3145,43 @@ Proof.
   apply Heq.
 Qed.
 
-Lemma dim_neq_at_length (d1 d2 : Dimension)
+Local Lemma dim_neq_at_length (d1 d2 : Dimension)
   : d1 DimLength <> d2 DimLength -> ~ (d1 == d2).
 Proof.
   apply dim_neq_witness.
 Qed.
 
-Lemma dim_neq_at_mass (d1 d2 : Dimension)
+Local Lemma dim_neq_at_mass (d1 d2 : Dimension)
   : d1 DimMass <> d2 DimMass -> ~ (d1 == d2).
 Proof.
   apply dim_neq_witness.
 Qed.
 
-Lemma dim_neq_at_time (d1 d2 : Dimension)
+Local Lemma dim_neq_at_time (d1 d2 : Dimension)
   : d1 DimTime <> d2 DimTime -> ~ (d1 == d2).
 Proof.
   apply dim_neq_witness.
 Qed.
 
-Lemma dim_neq_at_current (d1 d2 : Dimension)
+Local Lemma dim_neq_at_current (d1 d2 : Dimension)
   : d1 DimCurrent <> d2 DimCurrent -> ~ (d1 == d2).
 Proof.
   apply dim_neq_witness.
 Qed.
 
-Lemma dim_neq_at_temperature (d1 d2 : Dimension)
+Local Lemma dim_neq_at_temperature (d1 d2 : Dimension)
   : d1 DimTemperature <> d2 DimTemperature -> ~ (d1 == d2).
 Proof.
   apply dim_neq_witness.
 Qed.
 
-Lemma dim_neq_at_amount (d1 d2 : Dimension)
+Local Lemma dim_neq_at_amount (d1 d2 : Dimension)
   : d1 DimAmount <> d2 DimAmount -> ~ (d1 == d2).
 Proof.
   apply dim_neq_witness.
 Qed.
 
-Lemma dim_neq_at_luminosity (d1 d2 : Dimension)
+Local Lemma dim_neq_at_luminosity (d1 d2 : Dimension)
   : d1 DimLuminosity <> d2 DimLuminosity -> ~ (d1 == d2).
 Proof.
   apply dim_neq_witness.
@@ -3772,36 +3900,34 @@ Definition BaseDim_to_string (b : BaseDim) : string :=
   | DimLuminosity => "J"
   end.
 
-Definition nat_to_superscript (n : nat) : string :=
-  match n with
-  | 0%nat => "⁰"
-  | 1%nat => ""
-  | 2%nat => "²"
-  | 3%nat => "³"
-  | 4%nat => "⁴"
-  | 5%nat => "⁵"
-  | 6%nat => "⁶"
-  | 7%nat => "⁷"
-  | 8%nat => "⁸"
-  | 9%nat => "⁹"
-  | _ => "^?"
+Local Definition digit_to_superscript (d : nat) : string :=
+  match d with
+  | 0%nat => "⁰" | 1%nat => "¹" | 2%nat => "²" | 3%nat => "³" | 4%nat => "⁴"
+  | 5%nat => "⁵" | 6%nat => "⁶" | 7%nat => "⁷" | 8%nat => "⁸" | 9%nat => "⁹"
+  | _ => ""
   end.
 
-Definition Z_to_superscript (z : Z) : string :=
+Local Fixpoint nat_to_superscript_aux (n fuel : nat) : string :=
+  match fuel with
+  | O => ""
+  | S fuel' =>
+      if Nat.ltb n 10 then
+        digit_to_superscript n
+      else
+        nat_to_superscript_aux (Nat.div n 10) fuel' ++ digit_to_superscript (Nat.modulo n 10)
+  end.
+
+Local Definition nat_to_superscript (n : nat) : string :=
+  if Nat.eqb n 1 then "" else nat_to_superscript_aux n n.
+
+Local Definition Z_to_superscript (z : Z) : string :=
   match z with
   | Z0 => ""
   | Zpos p => nat_to_superscript (Pos.to_nat p)
-  | Zneg p =>
-      match Pos.to_nat p with
-      | 1%nat => "⁻¹"
-      | 2%nat => "⁻²"
-      | 3%nat => "⁻³"
-      | 4%nat => "⁻⁴"
-      | _ => "^-?"
-      end
+  | Zneg p => "⁻" ++ nat_to_superscript_aux (Pos.to_nat p) (Pos.to_nat p)
   end.
 
-Definition dim_component_to_string (b : BaseDim) (d : Dimension) : string :=
+Local Definition dim_component_to_string (b : BaseDim) (d : Dimension) : string :=
   let exp := d b in
   if (exp =? 0)%Z then ""
   else BaseDim_to_string b ++ Z_to_superscript exp.
@@ -3821,3 +3947,9 @@ Example dim_to_string_velocity : dim_to_string dim_velocity = "LT⁻¹" := eq_re
 Example dim_to_string_force : dim_to_string dim_force = "LMT⁻²" := eq_refl.
 Example dim_to_string_energy : dim_to_string dim_energy = "L²MT⁻²" := eq_refl.
 Example dim_to_string_zero : dim_to_string dim_zero = "1" := eq_refl.
+
+Lemma dim_to_string_zero_is_one
+  : dim_to_string dim_zero = "1".
+Proof.
+  reflexivity.
+Qed.
