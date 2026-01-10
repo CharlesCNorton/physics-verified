@@ -15,14 +15,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-(* TODO:                                                                      *)
-(*                                                                            *)
-(* - Add docstrings to definitions and lemmas.                                *)
-(* - Verify extraction to OCaml works correctly.                              *)
-(* - Add MathComp wrapper module for ssreflect integration.                   *)
-(* - Refactor into module structure for namespace hygiene.                    *)
-(* - Wrap Dimension in opaque module signature for nominal typing (do last).  *)
-
 Require Import ZArith.
 Require Import Lia.
 Require Import Setoid.
@@ -610,6 +602,68 @@ Instance Dimension_AbelianGroup : AbelianGroup dim_eq dim_add dim_neg dim_zero :
 }.
 
 (* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          MUL/DIV ALIASES                                    *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Lemma dim_mul_comm (d1 d2 : Dimension)
+  : dim_mul d1 d2 == dim_mul d2 d1.
+Proof.
+  unfold dim_mul.
+  apply dim_add_comm.
+Qed.
+
+Lemma dim_mul_assoc (d1 d2 d3 : Dimension)
+  : dim_mul (dim_mul d1 d2) d3 == dim_mul d1 (dim_mul d2 d3).
+Proof.
+  unfold dim_mul.
+  apply dim_add_assoc.
+Qed.
+
+Lemma dim_mul_0_l (d : Dimension)
+  : dim_mul dim_zero d == d.
+Proof.
+  unfold dim_mul.
+  apply dim_add_0_l.
+Qed.
+
+Lemma dim_mul_0_r (d : Dimension)
+  : dim_mul d dim_zero == d.
+Proof.
+  unfold dim_mul.
+  apply dim_add_0_r.
+Qed.
+
+Lemma dim_div_cancel_r (d1 d2 : Dimension)
+  : dim_mul (dim_div d1 d2) d2 == d1.
+Proof.
+  unfold dim_mul, dim_div, dim_sub, dim_eq, dim_add, dim_neg.
+  intro b.
+  lia.
+Qed.
+
+Lemma dim_div_cancel_l (d1 d2 : Dimension)
+  : dim_mul d2 (dim_div d1 d2) == d1.
+Proof.
+  unfold dim_mul, dim_div, dim_sub, dim_eq, dim_add, dim_neg.
+  intro b.
+  lia.
+Qed.
+
+Lemma dim_div_self (d : Dimension)
+  : dim_div d d == dim_zero.
+Proof.
+  unfold dim_div.
+  apply dim_sub_diag.
+Qed.
+
+Lemma dim_div_0_r (d : Dimension)
+  : dim_div d dim_zero == d.
+Proof.
+  unfold dim_div.
+  apply dim_sub_0_r.
+Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          Z-MODULE STRUCTURE                                 *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 
@@ -736,6 +790,20 @@ Lemma dim_pow_1 (d : Dimension)
 Proof.
   simpl.
   apply dim_add_0_r.
+Qed.
+
+Lemma dim_pow_neg (d : Dimension) (n : nat)
+  : (- d) ^ n == - (d ^ n).
+Proof.
+  induction n as [|n' IH].
+  - simpl.
+    apply dim_neg_zero.
+  - simpl.
+    apply dim_eq_trans with (d2 := - d + - (d ^ n')).
+    + apply dim_add_compat_r.
+      exact IH.
+    + apply dim_eq_sym.
+      apply dim_neg_add.
 Qed.
 
 Lemma dim_pow_S (d : Dimension) (n : nat)
@@ -1261,6 +1329,8 @@ Qed.
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 
 Definition dim_velocity     : Dimension := dim_length - dim_time.
+Definition dim_speed        : Dimension := dim_velocity.
+Definition dim_speed_of_light : Dimension := dim_velocity.
 Definition dim_acceleration : Dimension := dim_velocity - dim_time.
 Definition dim_jerk         : Dimension := dim_acceleration - dim_time.
 Definition dim_frequency    : Dimension := - dim_time.
@@ -1421,6 +1491,8 @@ Definition dim_permeability   : Dimension := dim_inductance - dim_length.
 Definition dim_electric_field : Dimension := dim_voltage - dim_length.
 Definition dim_charge_density : Dimension := dim_charge - dim_volume.
 Definition dim_current_density : Dimension := dim_current - dim_area.
+Definition dim_magnetic_vector_potential : Dimension := dim_magnetic_flux - dim_length.
+Definition dim_electric_flux : Dimension := dim_voltage + dim_length.
 
 Example dim_charge_current_exp : dim_charge DimCurrent = 1 := eq_refl.
 Example dim_charge_time_exp : dim_charge DimTime = 1 := eq_refl.
@@ -1583,6 +1655,12 @@ Definition dim_faraday          : Dimension := dim_charge - dim_amount.
 Definition dim_stefan_boltzmann : Dimension := dim_power - dim_area - (4 * dim_temperature).
 Definition dim_planck           : Dimension := dim_action.
 Definition dim_coulomb_const    : Dimension := dim_force + dim_area - (2 * dim_charge).
+
+Definition dim_planck_length      : Dimension := dim_length.
+Definition dim_planck_time        : Dimension := dim_time.
+Definition dim_planck_mass        : Dimension := dim_mass.
+Definition dim_planck_temperature : Dimension := dim_temperature.
+Definition dim_planck_charge      : Dimension := dim_charge.
 
 Example dim_gravitational_mass_exp : dim_gravitational DimMass = -1 := eq_refl.
 Example dim_gravitational_length_exp : dim_gravitational DimLength = 3 := eq_refl.
@@ -2024,6 +2102,14 @@ Proof.
   lia.
 Qed.
 
+Definition dim_wien : Dimension := dim_length + dim_temperature.
+
+Lemma wien_displacement_law
+  : (dim_length + dim_temperature) == dim_wien.
+Proof.
+  apply dim_eq_refl.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          PHYSICAL LAW WITNESSES: ELECTROSTATICS             *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -2056,6 +2142,28 @@ Lemma lorentz_force_magnetic_term
   : (dim_charge + dim_velocity + dim_magnetic_field) == dim_force.
 Proof.
   unfold dim_magnetic_field, dim_magnetic_flux, dim_voltage, dim_charge.
+  unfold dim_energy, dim_force, dim_acceleration, dim_velocity, dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma curl_of_vector_potential_is_field
+  : (dim_magnetic_vector_potential - dim_length) == dim_magnetic_field.
+Proof.
+  unfold dim_magnetic_vector_potential, dim_magnetic_field, dim_magnetic_flux.
+  unfold dim_voltage, dim_energy, dim_force, dim_acceleration, dim_velocity.
+  unfold dim_area, dim_sub.
+  unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
+  intro b.
+  destruct b; simpl; reflexivity.
+Qed.
+
+Lemma poynting_vector_dimension
+  : (dim_electric_field + dim_magnetic_field - dim_permeability) == dim_radiance.
+Proof.
+  unfold dim_electric_field, dim_magnetic_field, dim_radiance, dim_power.
+  unfold dim_permeability, dim_inductance, dim_magnetic_flux, dim_voltage.
   unfold dim_energy, dim_force, dim_acceleration, dim_velocity, dim_area, dim_sub.
   unfold dim_eq, dim_add, dim_neg, dim_scale, dim_basis.
   intro b.
@@ -2505,6 +2613,19 @@ Proof.
   nia.
 Qed.
 
+Lemma dim_scale_injective_zero (n : Z) (d : Dimension)
+  : (n * d) == dim_zero -> n = 0%Z \/ d == dim_zero.
+Proof.
+  unfold dim_eq, dim_scale, dim_zero.
+  intro H.
+  destruct (Z.eq_dec n 0) as [Hn|Hn].
+  - left; exact Hn.
+  - right.
+    intro b.
+    specialize (H b).
+    nia.
+Qed.
+
 (* ═══════════════════════════════════════════════════════════════════════════ *)
 (*                          REFLECTION                                         *)
 (* ═══════════════════════════════════════════════════════════════════════════ *)
@@ -2540,7 +2661,8 @@ Ltac unfold_dim_base :=
 
 Ltac unfold_dim_derived :=
   unfold dim_area, dim_volume, dim_wavenumber,
-         dim_velocity, dim_acceleration, dim_jerk, dim_frequency,
+         dim_velocity, dim_speed, dim_speed_of_light,
+         dim_acceleration, dim_jerk, dim_frequency,
          dim_angular_velocity, dim_angular_acceleration,
          dim_momentum, dim_force, dim_energy, dim_power, dim_pressure,
          dim_density, dim_torque, dim_angular_momentum, dim_moment_of_inertia,
@@ -2551,11 +2673,14 @@ Ltac unfold_dim_derived :=
          dim_conductance, dim_magnetic_flux, dim_magnetic_field,
          dim_inductance, dim_permittivity, dim_permeability,
          dim_electric_field, dim_charge_density, dim_current_density,
+         dim_magnetic_vector_potential, dim_electric_flux,
          dim_heat_capacity, dim_specific_heat, dim_entropy, dim_thermal_conductivity,
          dim_radioactivity, dim_absorbed_dose, dim_equivalent_dose,
          dim_exposure, dim_kerma,
          dim_gravitational, dim_boltzmann, dim_avogadro, dim_gas_constant,
          dim_faraday, dim_stefan_boltzmann, dim_planck, dim_coulomb_const,
+         dim_planck_length, dim_planck_time, dim_planck_mass,
+         dim_planck_temperature, dim_planck_charge, dim_wien,
          dim_dimensionless, dim_angle, dim_solid_angle, dim_strain, dim_refractive_index,
          dim_luminous_flux, dim_illuminance, dim_luminance, dim_catalytic_activity,
          dim_concentration, dim_molarity, dim_molar_mass, dim_molar_volume,
