@@ -19,15 +19,15 @@
 (*                                                                            *)
 (******************************************************************************)
 
-(* Known limitations and future work:
-   - dim_pow naming may mislead: it's scalar multiplication, not exponentiation
-   - dim_mul/dim_div are aliases for dim_add/dim_sub, which can confuse readers
-   - Automation tactics (dim_crush, dim_reflect) only work on ground terms
-   - No Coquelicot/Reals bridge (to be added in Quantities.v)
-   - No MathComp/ssreflect wrapper module
-
-   Pairwise independence: All C(7,2) = 21 base dimension pairs proven independent.
-   For derived dimensions, use dim_neq_by_witness tactic or dim_eq_dec decidability.
+(* TODO:
+   1. Prove all 21 pairwise base dimension inequalities and key derived dimension inequalities
+   2. Build reification from dimension terms to syntax for verified decision procedures
+   3. Implement dim_ring tactic using reification for automated dimension algebra
+   4. Convert all Ltac tactics to Ltac2
+   5. Define Q-vector space structure over rationals
+   6. Implement dim_sqrt using rational exponents
+   7. Construct quotient type for Dimension with Leibniz equality
+   8. Create MathComp wrapper module with eqType and ssreflect instances
 *)
 
 Require Import ZArith.
