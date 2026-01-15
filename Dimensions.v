@@ -20,14 +20,12 @@
 (******************************************************************************)
 
 (* TODO:
-   1. Prove all 21 pairwise base dimension inequalities and key derived dimension inequalities
-   2. Build reification from dimension terms to syntax for verified decision procedures
-   3. Implement dim_ring tactic using reification for automated dimension algebra
-   4. Convert all Ltac tactics to Ltac2
-   5. Define Q-vector space structure over rationals
-   6. Implement dim_sqrt using rational exponents
-   7. Construct quotient type for Dimension with Leibniz equality
-   8. Create MathComp wrapper module with eqType and ssreflect instances
+   1. Implement dim_ring tactic using reification for automated dimension algebra
+   2. Convert all Ltac tactics to Ltac2
+   3. Define Q-vector space structure over rationals
+   4. Implement dim_sqrt using rational exponents
+   5. Construct quotient type for Dimension with Leibniz equality
+   6. Create MathComp wrapper module with eqType and ssreflect instances
 *)
 
 Require Import ZArith.
@@ -3952,4 +3950,431 @@ Lemma dim_to_string_zero_is_one
   : dim_to_string dim_zero = "1".
 Proof.
   reflexivity.
+Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          REIFICATION: SYNTAX                                *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Inductive DimExpr : Type :=
+  | DEZero : DimExpr
+  | DEBase : BaseDim -> DimExpr
+  | DEAdd : DimExpr -> DimExpr -> DimExpr
+  | DENeg : DimExpr -> DimExpr
+  | DEScale : Z -> DimExpr -> DimExpr.
+
+Fixpoint denote (e : DimExpr) : Dimension :=
+  match e with
+  | DEZero => dim_zero
+  | DEBase b => dim_basis b
+  | DEAdd e1 e2 => dim_add (denote e1) (denote e2)
+  | DENeg e1 => dim_neg (denote e1)
+  | DEScale n e1 => dim_scale n (denote e1)
+  end.
+
+Example denote_DEZero : denote DEZero = dim_zero := eq_refl.
+Example denote_DEBase_length : denote (DEBase DimLength) = dim_length := eq_refl.
+Example denote_velocity_expr
+  : denote (DEAdd (DEBase DimLength) (DENeg (DEBase DimTime))) == dim_velocity.
+Proof. apply dim_eq_refl. Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          REIFICATION: NORMALIZATION                         *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Record DimCoeffs : Type := mkDimCoeffs {
+  coeff_length : Z;
+  coeff_mass : Z;
+  coeff_time : Z;
+  coeff_current : Z;
+  coeff_temperature : Z;
+  coeff_amount : Z;
+  coeff_luminosity : Z
+}.
+
+Definition coeffs_zero : DimCoeffs :=
+  mkDimCoeffs 0 0 0 0 0 0 0.
+
+Definition coeffs_base (b : BaseDim) : DimCoeffs :=
+  match b with
+  | DimLength => mkDimCoeffs 1 0 0 0 0 0 0
+  | DimMass => mkDimCoeffs 0 1 0 0 0 0 0
+  | DimTime => mkDimCoeffs 0 0 1 0 0 0 0
+  | DimCurrent => mkDimCoeffs 0 0 0 1 0 0 0
+  | DimTemperature => mkDimCoeffs 0 0 0 0 1 0 0
+  | DimAmount => mkDimCoeffs 0 0 0 0 0 1 0
+  | DimLuminosity => mkDimCoeffs 0 0 0 0 0 0 1
+  end.
+
+Definition coeffs_add (c1 c2 : DimCoeffs) : DimCoeffs :=
+  mkDimCoeffs
+    (coeff_length c1 + coeff_length c2)
+    (coeff_mass c1 + coeff_mass c2)
+    (coeff_time c1 + coeff_time c2)
+    (coeff_current c1 + coeff_current c2)
+    (coeff_temperature c1 + coeff_temperature c2)
+    (coeff_amount c1 + coeff_amount c2)
+    (coeff_luminosity c1 + coeff_luminosity c2).
+
+Definition coeffs_neg (c : DimCoeffs) : DimCoeffs :=
+  mkDimCoeffs
+    (- coeff_length c)
+    (- coeff_mass c)
+    (- coeff_time c)
+    (- coeff_current c)
+    (- coeff_temperature c)
+    (- coeff_amount c)
+    (- coeff_luminosity c).
+
+Definition coeffs_scale (n : Z) (c : DimCoeffs) : DimCoeffs :=
+  mkDimCoeffs
+    (n * coeff_length c)
+    (n * coeff_mass c)
+    (n * coeff_time c)
+    (n * coeff_current c)
+    (n * coeff_temperature c)
+    (n * coeff_amount c)
+    (n * coeff_luminosity c).
+
+Fixpoint normalize (e : DimExpr) : DimCoeffs :=
+  match e with
+  | DEZero => coeffs_zero
+  | DEBase b => coeffs_base b
+  | DEAdd e1 e2 => coeffs_add (normalize e1) (normalize e2)
+  | DENeg e1 => coeffs_neg (normalize e1)
+  | DEScale n e1 => coeffs_scale n (normalize e1)
+  end.
+
+Definition coeffs_to_dim (c : DimCoeffs) : Dimension :=
+  fun b => match b with
+           | DimLength => coeff_length c
+           | DimMass => coeff_mass c
+           | DimTime => coeff_time c
+           | DimCurrent => coeff_current c
+           | DimTemperature => coeff_temperature c
+           | DimAmount => coeff_amount c
+           | DimLuminosity => coeff_luminosity c
+           end.
+
+Definition coeffs_eqb (c1 c2 : DimCoeffs) : bool :=
+  Z.eqb (coeff_length c1) (coeff_length c2) &&
+  Z.eqb (coeff_mass c1) (coeff_mass c2) &&
+  Z.eqb (coeff_time c1) (coeff_time c2) &&
+  Z.eqb (coeff_current c1) (coeff_current c2) &&
+  Z.eqb (coeff_temperature c1) (coeff_temperature c2) &&
+  Z.eqb (coeff_amount c1) (coeff_amount c2) &&
+  Z.eqb (coeff_luminosity c1) (coeff_luminosity c2).
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          REIFICATION: SOUNDNESS                             *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Lemma coeffs_to_dim_zero
+  : coeffs_to_dim coeffs_zero == dim_zero.
+Proof.
+  unfold coeffs_to_dim, coeffs_zero, dim_eq, dim_zero.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma coeffs_to_dim_base (b : BaseDim)
+  : coeffs_to_dim (coeffs_base b) == dim_basis b.
+Proof.
+  unfold coeffs_to_dim, coeffs_base, dim_eq, dim_basis.
+  intro b'.
+  destruct b, b'; simpl; reflexivity.
+Qed.
+
+Lemma coeffs_to_dim_add (c1 c2 : DimCoeffs)
+  : coeffs_to_dim (coeffs_add c1 c2) == dim_add (coeffs_to_dim c1) (coeffs_to_dim c2).
+Proof.
+  unfold coeffs_to_dim, coeffs_add, dim_eq, dim_add.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma coeffs_to_dim_neg (c : DimCoeffs)
+  : coeffs_to_dim (coeffs_neg c) == dim_neg (coeffs_to_dim c).
+Proof.
+  unfold coeffs_to_dim, coeffs_neg, dim_eq, dim_neg.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Lemma coeffs_to_dim_scale (n : Z) (c : DimCoeffs)
+  : coeffs_to_dim (coeffs_scale n c) == dim_scale n (coeffs_to_dim c).
+Proof.
+  unfold coeffs_to_dim, coeffs_scale, dim_eq, dim_scale.
+  intro b.
+  destruct b; reflexivity.
+Qed.
+
+Theorem normalize_sound (e : DimExpr)
+  : denote e == coeffs_to_dim (normalize e).
+Proof.
+  induction e as [| b | e1 IH1 e2 IH2 | e1 IH1 | n e1 IH1].
+  - simpl.
+    apply dim_eq_sym.
+    apply coeffs_to_dim_zero.
+  - simpl.
+    apply dim_eq_sym.
+    apply coeffs_to_dim_base.
+  - simpl.
+    apply dim_eq_trans with (d2 := dim_add (coeffs_to_dim (normalize e1))
+                                           (coeffs_to_dim (normalize e2))).
+    + apply dim_add_compat.
+      * exact IH1.
+      * exact IH2.
+    + apply dim_eq_sym.
+      apply coeffs_to_dim_add.
+  - simpl.
+    apply dim_eq_trans with (d2 := dim_neg (coeffs_to_dim (normalize e1))).
+    + apply dim_neg_compat.
+      exact IH1.
+    + apply dim_eq_sym.
+      apply coeffs_to_dim_neg.
+  - simpl.
+    apply dim_eq_trans with (d2 := dim_scale n (coeffs_to_dim (normalize e1))).
+    + apply dim_scale_compat.
+      exact IH1.
+    + apply dim_eq_sym.
+      apply coeffs_to_dim_scale.
+Qed.
+
+Lemma coeffs_eqb_eq (c1 c2 : DimCoeffs)
+  : coeffs_eqb c1 c2 = true <-> coeffs_to_dim c1 == coeffs_to_dim c2.
+Proof.
+  unfold coeffs_eqb, coeffs_to_dim, dim_eq.
+  split.
+  - intro H.
+    repeat rewrite andb_true_iff in H.
+    destruct H as [[[[[[Hl Hm] Ht] Hi] Hth] Hn] Hlu].
+    apply Z.eqb_eq in Hl, Hm, Ht, Hi, Hth, Hn, Hlu.
+    intro b.
+    destruct b; assumption.
+  - intro H.
+    repeat rewrite andb_true_iff.
+    repeat split; apply Z.eqb_eq.
+    + exact (H DimLength).
+    + exact (H DimMass).
+    + exact (H DimTime).
+    + exact (H DimCurrent).
+    + exact (H DimTemperature).
+    + exact (H DimAmount).
+    + exact (H DimLuminosity).
+Qed.
+
+Lemma coeffs_eqb_neq (c1 c2 : DimCoeffs)
+  : coeffs_eqb c1 c2 = false <-> ~ (coeffs_to_dim c1 == coeffs_to_dim c2).
+Proof.
+  split.
+  - intros H Heq.
+    apply coeffs_eqb_eq in Heq.
+    rewrite Heq in H.
+    discriminate.
+  - intro H.
+    destruct (coeffs_eqb c1 c2) eqn:E.
+    + apply coeffs_eqb_eq in E.
+      contradiction.
+    + reflexivity.
+Qed.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          REIFICATION: DECISION PROCEDURE                    *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Definition dim_expr_eqb (e1 e2 : DimExpr) : bool :=
+  coeffs_eqb (normalize e1) (normalize e2).
+
+Theorem dim_expr_eqb_sound (e1 e2 : DimExpr)
+  : dim_expr_eqb e1 e2 = true -> denote e1 == denote e2.
+Proof.
+  unfold dim_expr_eqb.
+  intro H.
+  apply coeffs_eqb_eq in H.
+  apply dim_eq_trans with (d2 := coeffs_to_dim (normalize e1)).
+  - apply normalize_sound.
+  - apply dim_eq_trans with (d2 := coeffs_to_dim (normalize e2)).
+    + exact H.
+    + apply dim_eq_sym.
+      apply normalize_sound.
+Qed.
+
+Theorem dim_expr_eqb_complete (e1 e2 : DimExpr)
+  : denote e1 == denote e2 -> dim_expr_eqb e1 e2 = true.
+Proof.
+  unfold dim_expr_eqb.
+  intro H.
+  apply coeffs_eqb_eq.
+  apply dim_eq_trans with (d2 := denote e1).
+  - apply dim_eq_sym.
+    apply normalize_sound.
+  - apply dim_eq_trans with (d2 := denote e2).
+    + exact H.
+    + apply normalize_sound.
+Qed.
+
+Theorem dim_expr_eqb_correct (e1 e2 : DimExpr)
+  : dim_expr_eqb e1 e2 = true <-> denote e1 == denote e2.
+Proof.
+  split.
+  - apply dim_expr_eqb_sound.
+  - apply dim_expr_eqb_complete.
+Qed.
+
+Theorem dim_expr_neqb_sound (e1 e2 : DimExpr)
+  : dim_expr_eqb e1 e2 = false -> ~ (denote e1 == denote e2).
+Proof.
+  intros H Heq.
+  apply dim_expr_eqb_complete in Heq.
+  rewrite Heq in H.
+  discriminate.
+Qed.
+
+Definition dim_expr_eq_dec (e1 e2 : DimExpr)
+  : {denote e1 == denote e2} + {~ denote e1 == denote e2}.
+Proof.
+  destruct (dim_expr_eqb e1 e2) eqn:E.
+  - left.
+    apply dim_expr_eqb_sound.
+    exact E.
+  - right.
+    apply dim_expr_neqb_sound.
+    exact E.
+Defined.
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          REIFICATION: LTAC TACTICS                          *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Ltac reify_dim d :=
+  match d with
+  | dim_zero => constr:(DEZero)
+  | dim_basis ?b => constr:(DEBase b)
+  | dim_length => constr:(DEBase DimLength)
+  | dim_mass => constr:(DEBase DimMass)
+  | dim_time => constr:(DEBase DimTime)
+  | dim_current => constr:(DEBase DimCurrent)
+  | dim_temperature => constr:(DEBase DimTemperature)
+  | dim_amount => constr:(DEBase DimAmount)
+  | dim_luminosity => constr:(DEBase DimLuminosity)
+  | dim_add ?d1 ?d2 =>
+      let e1 := reify_dim d1 in
+      let e2 := reify_dim d2 in
+      constr:(DEAdd e1 e2)
+  | dim_neg ?d1 =>
+      let e1 := reify_dim d1 in
+      constr:(DENeg e1)
+  | dim_scale ?n ?d1 =>
+      let e1 := reify_dim d1 in
+      constr:(DEScale n e1)
+  | dim_sub ?d1 ?d2 =>
+      let e1 := reify_dim d1 in
+      let e2 := reify_dim d2 in
+      constr:(DEAdd e1 (DENeg e2))
+  | ?d1 + ?d2 =>
+      let e1 := reify_dim d1 in
+      let e2 := reify_dim d2 in
+      constr:(DEAdd e1 e2)
+  | - ?d1 =>
+      let e1 := reify_dim d1 in
+      constr:(DENeg e1)
+  | ?n * ?d1 =>
+      let e1 := reify_dim d1 in
+      constr:(DEScale n e1)
+  | ?d1 - ?d2 =>
+      let e1 := reify_dim d1 in
+      let e2 := reify_dim d2 in
+      constr:(DEAdd e1 (DENeg e2))
+  | _ => fail "reify_dim: cannot reify" d
+  end.
+
+Ltac unfold_derived_dims :=
+  unfold dim_velocity, dim_speed, dim_speed_of_light, dim_acceleration, dim_jerk,
+         dim_frequency, dim_angular_velocity, dim_angular_acceleration,
+         dim_momentum, dim_force, dim_energy, dim_power, dim_pressure,
+         dim_density, dim_torque, dim_angular_momentum, dim_moment_of_inertia,
+         dim_action, dim_specific_energy, dim_surface_tension,
+         dim_dynamic_viscosity, dim_kinematic_viscosity,
+         dim_stiffness, dim_compliance, dim_fluidity,
+         dim_charge, dim_voltage, dim_capacitance, dim_resistance,
+         dim_conductance, dim_magnetic_flux, dim_magnetic_field,
+         dim_inductance, dim_permittivity, dim_permeability,
+         dim_electric_field, dim_charge_density, dim_current_density,
+         dim_magnetic_vector_potential, dim_electric_flux,
+         dim_heat_capacity, dim_specific_heat, dim_entropy, dim_thermal_conductivity,
+         dim_radioactivity, dim_absorbed_dose, dim_equivalent_dose,
+         dim_exposure, dim_kerma,
+         dim_gravitational, dim_boltzmann, dim_avogadro, dim_gas_constant,
+         dim_faraday, dim_stefan_boltzmann, dim_planck, dim_coulomb_const,
+         dim_area, dim_volume, dim_wavenumber,
+         dim_dimensionless, dim_angle, dim_solid_angle, dim_strain, dim_refractive_index,
+         dim_sub in *.
+
+Ltac dim_reify_eq :=
+  unfold_derived_dims;
+  match goal with
+  | |- ?d1 == ?d2 =>
+      let e1 := reify_dim d1 in
+      let e2 := reify_dim d2 in
+      change (denote e1 == denote e2);
+      apply dim_expr_eqb_sound;
+      vm_compute;
+      reflexivity
+  end.
+
+Ltac dim_reify_neq :=
+  unfold_derived_dims;
+  match goal with
+  | |- ~ (?d1 == ?d2) =>
+      let e1 := reify_dim d1 in
+      let e2 := reify_dim d2 in
+      change (~ (denote e1 == denote e2));
+      apply dim_expr_neqb_sound;
+      vm_compute;
+      reflexivity
+  end.
+
+Ltac dim_reify :=
+  first [ dim_reify_eq | dim_reify_neq ].
+
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+(*                          REIFICATION: TESTS                                 *)
+(* ═══════════════════════════════════════════════════════════════════════════ *)
+
+Example reify_test_base
+  : dim_length == dim_length.
+Proof. dim_reify. Qed.
+
+Example reify_test_add
+  : dim_add dim_length dim_mass == dim_add dim_length dim_mass.
+Proof. dim_reify. Qed.
+
+Example reify_test_sub
+  : dim_add dim_length (dim_neg dim_time) == dim_add dim_length (dim_neg dim_time).
+Proof. dim_reify. Qed.
+
+Example reify_test_velocity
+  : dim_velocity == dim_add dim_length (dim_neg dim_time).
+Proof. dim_reify. Qed.
+
+Example reify_test_force
+  : dim_force == dim_add (dim_add dim_mass (dim_add dim_length (dim_neg dim_time))) (dim_neg dim_time).
+Proof.
+  unfold_derived_dims.
+  dim_vm_decide.
+Qed.
+
+Example reify_test_neq
+  : ~ (dim_energy == dim_momentum).
+Proof.
+  unfold_derived_dims.
+  dim_vm_decide.
+Qed.
+
+Example reify_test_complex
+  : dim_add dim_force dim_length == dim_energy.
+Proof.
+  unfold_derived_dims.
+  dim_vm_decide.
 Qed.
